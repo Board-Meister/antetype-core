@@ -144,6 +144,7 @@ declare class Minstrel {
 	component<T>(module: Module$1, suffix: string, scope?: Record<string, any>): React$1.FC<T>;
 	asset(module: Module$1, suffix: string): string;
 }
+declare type UnknownRecord = Record<symbol | string, unknown>;
 declare enum Event$1 {
 	INIT = "antetype.init",
 	DRAW = "antetype.draw",
@@ -223,21 +224,33 @@ export interface IFont {
 	name: string;
 }
 export interface ICore {
+	meta: {
+		document: IDocumentDef;
+	};
+	clone: {
+		definitions: (data: IBaseDef) => Promise<IBaseDef>;
+		getOriginal: <T extends UnknownRecord = UnknownRecord>(object: T) => T;
+		getClone: <T extends UnknownRecord = UnknownRecord>(object: T) => T;
+	};
 	manage: {
+		markAsLayer: (layer: IBaseDef) => IBaseDef;
+		add: (def: IBaseDef, parent?: IParentDef | null, position?: number | null) => void;
+		addVolatile: (def: IBaseDef, parent?: IParentDef | null, position?: number | null) => void;
 		move: (original: IBaseDef, def: IBaseDef, newStart: IStart) => Promise<void>;
 		resize: (original: IBaseDef, def: IBaseDef, newSize: ISize) => Promise<void>;
-		remove: (def: IBaseDef, ogParent: IParentDef, ogPosition: number) => void;
+		remove: (def: IBaseDef) => void;
+		removeVolatile: (def: IBaseDef) => void;
 	};
 	view: {
 		calc: (element: IBaseDef, parent: IParentDef, position: number) => Promise<IBaseDef | null>;
 		draw: (element: IBaseDef) => void;
-		redraw: (layout: Layout) => void;
-		recalculate: (parent: IParentDef, layout: Layout) => Promise<Layout>;
+		redraw: (layout?: Layout) => void;
+		recalculate: (parent?: IParentDef, layout?: Layout) => Promise<Layout>;
 		redrawDebounce: (layout: Layout) => void;
 	};
 	policies: {
-		markAsLayer: (layer: IBaseDef) => IBaseDef;
 		isLayer: (layer: Record<symbol, unknown>) => boolean;
+		isClone: (layer: Record<symbol, unknown>) => boolean;
 	};
 	font: {
 		load: (font: IFont) => Promise<void>;
@@ -255,6 +268,7 @@ export declare class AntetypeCore {
 	inject(injections: IInjected): void;
 	register(event: CustomEvent<ModulesEvent>): Promise<void>;
 	init(event: CustomEvent<InitEvent>): Promise<IDocumentDef>;
+	cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void>;
 	static subscriptions: Subscriptions;
 }
 declare const EnAntetypeCore: IInjectable & ISubscriber;

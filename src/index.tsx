@@ -3,7 +3,8 @@ import type { ModulesEvent, Modules } from "@boardmeister/antetype"
 import type { IInjectable, Module } from "@boardmeister/marshal"
 import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald, ISubscriber, Subscriptions } from "@boardmeister/herald"
-import Core from "@src/core";
+import type Core from "@src/core";
+import type { UnknownRecord } from "@src/clone";
 
 export enum Event {
   INIT = 'antetype.init',
@@ -94,21 +95,33 @@ export interface IFont {
 }
 
 export interface ICore {
+  meta: {
+    document: IDocumentDef;
+  },
+  clone: {
+    definitions: (data: IBaseDef) => Promise<IBaseDef>;
+    getOriginal: <T extends UnknownRecord = UnknownRecord>(object: T) => T;
+    getClone: <T extends UnknownRecord = UnknownRecord>(object: T) => T;
+  }
   manage: {
+    markAsLayer: (layer: IBaseDef) => IBaseDef;
+    add:(def: IBaseDef, parent?: IParentDef|null, position?: number|null) => void;
+    addVolatile:(def: IBaseDef, parent?: IParentDef|null, position?: number|null) => void;
     move: (original: IBaseDef, def: IBaseDef, newStart: IStart) => Promise<void>;
     resize: (original: IBaseDef, def: IBaseDef, newSize: ISize) => Promise<void>;
-    remove: (def: IBaseDef, ogParent: IParentDef, ogPosition: number) => void;
+    remove: (def: IBaseDef) => void;
+    removeVolatile: (def: IBaseDef) => void;
   };
   view: {
     calc: (element: IBaseDef, parent: IParentDef, position: number) => Promise<IBaseDef|null>;
     draw: (element: IBaseDef) => void;
-    redraw: (layout: Layout) => void;
-    recalculate: (parent: IParentDef, layout: Layout) => Promise<Layout>;
+    redraw: (layout?: Layout) => void;
+    recalculate: (parent?: IParentDef, layout?: Layout) => Promise<Layout>;
     redrawDebounce: (layout: Layout) => void;
   };
   policies: {
-    markAsLayer: (layer: IBaseDef) => IBaseDef;
     isLayer: (layer: Record<symbol, unknown>) => boolean;
+    isClone: (layer: Record<symbol, unknown>) => boolean;
   };
   font: {
     load: (font: IFont) => Promise<void>,
@@ -124,8 +137,8 @@ export type Layout = (IBaseDef|IParentDef)[];
 
 export class AntetypeCore {
   #injected?: IInjected;
-  #module: (typeof Core)|null = null;
-  #instance: ICore|null = null;
+  #moduleCore: (typeof Core)|null = null;
+  #core: ICore|null = null;
 
   static inject: Record<string, string> = {
     minstrel: 'boardmeister/minstrel',
@@ -135,57 +148,70 @@ export class AntetypeCore {
     this.#injected = injections;
   }
 
-  async #getInstance(modules: Modules, canvas: HTMLCanvasElement|null): Promise<ICore> {
-    if (!this.#instance) {
+  async #getCore(modules: Modules, canvas: HTMLCanvasElement|null): Promise<ICore> {
+    if (!this.#core) {
       const module = this.#injected!.minstrel.getResourceUrl(this as Module, 'core.js');
-      this.#module = (await import(module)).default;
-      this.#instance = this.#module!({canvas, modules, injected: this.#injected!});
+      this.#moduleCore = (await import(module)).default;
+      this.#core = this.#moduleCore!({ canvas, modules, injected: this.#injected! });
     }
 
-    return this.#instance;
+    return this.#core;
   }
 
   async register(event: CustomEvent<ModulesEvent>): Promise<void> {
     const { modules, canvas } = event.detail;
 
-    modules.core = await this.#getInstance(modules, canvas);
+    modules.core = await this.#getCore(modules, canvas);
   }
 
   async init(event: CustomEvent<InitEvent>): Promise<IDocumentDef> {
-    if (!this.#instance) {
+    if (!this.#core) {
       throw new Error('Instance not loaded, trigger registration event first');
     }
 
     const { base, settings } = event.detail;
     for (const key in settings) {
-      this.#instance.setting.set(key, settings[key]);
+      this.#core.setting.set(key, settings[key]);
     }
 
-    const doc: IDocumentDef = {
-      type: 'document',
-      base,
-      layout: [],
-      start: { x: 0, y: 0 },
-      size: { w: 0, h: 0 },
-    };
+    const doc = this.#core.meta.document;
+    doc.base = base;
 
     // @TODO move this somewhere else?
     const promises: Promise<void>[] = [];
-    (this.#instance.setting.get<IFont[]>('fonts') ?? []).forEach((font: IFont) => {
-      promises.push(this.#instance!.font.load(font));
+    (this.#core.setting.get<IFont[]>('fonts') ?? []).forEach((font: IFont) => {
+      promises.push(this.#core!.font.load(font));
     });
     await Promise.all(promises);
 
 
-    doc.layout = await this.#instance.view.recalculate(doc, doc.base);
-    await this.#instance.view.redraw(doc.layout);
+    doc.layout = await this.#core.view.recalculate(doc, doc.base);
+    await this.#core.view.redraw(doc.layout);
 
     return doc;
+  }
+
+  async cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void> {
+    if (!this.#core) {
+      throw new Error('Instance not loaded, trigger registration event first');
+    }
+
+    if (event.detail.element === null) {
+      return;
+    }
+
+    event.detail.element = await this.#core.clone.definitions(event.detail.element);
   }
 
   static subscriptions: Subscriptions = {
     [AntetypeEvent.MODULES]: 'register',
     [Event.INIT]: 'init',
+    [Event.CALC]: [
+      {
+        method: 'cloneDefinitions',
+        priority: -255,
+      },
+    ],
   }
 }
 
