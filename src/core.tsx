@@ -66,12 +66,12 @@ export default function Core(
   }
 
   const calcAndUpdateLayer = async (original: IBaseDef, def: IBaseDef): Promise<void> => {
-    if (!def.hierarchy?.parent) {
+    if (!original.hierarchy?.parent) {
       return;
     }
 
-    const position = def.hierarchy.position;
-    const parent = def.hierarchy.parent;
+    const position = original.hierarchy.position;
+    const parent = original.hierarchy.parent;
 
     const newLayer = await calc(original, parent, position);
 
