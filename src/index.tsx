@@ -1,13 +1,27 @@
 import { Event as AntetypeEvent } from "@boardmeister/antetype"
-import type { ModulesEvent, Modules } from "@boardmeister/antetype"
-import type { IInjectable, Module } from "@boardmeister/marshal"
+import type { IInjectable } from "@boardmeister/marshal"
 import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald, ISubscriber, Subscriptions } from "@boardmeister/herald"
 import type Core from "@src/core";
 import type { UnknownRecord } from "@src/clone";
 
+
+export interface ModulesEvent {
+  modules: Modules;
+  canvas: HTMLCanvasElement|null;
+}
+
+export interface Module {
+}
+
+export interface Modules {
+  [key: string]: Module|undefined;
+  core: ICore;
+}
+
 export enum Event {
   INIT = 'antetype.init',
+  CLOSE = 'antetype.close',
   DRAW = 'antetype.draw',
   CALC = 'antetype.calc',
 }
@@ -27,6 +41,9 @@ export interface ISettings {
 export interface InitEvent {
   base: Layout;
   settings: ISettings;
+}
+
+export interface CloseEvent {
 }
 
 export declare type XValue = number;
@@ -94,7 +111,7 @@ export interface IFont {
   name: string;
 }
 
-export interface ICore {
+export interface ICore extends Module {
   meta: {
     document: IDocumentDef;
   },
@@ -107,13 +124,14 @@ export interface ICore {
     markAsLayer: (layer: IBaseDef) => IBaseDef;
     add:(def: IBaseDef, parent?: IParentDef|null, position?: number|null) => void;
     addVolatile:(def: IBaseDef, parent?: IParentDef|null, position?: number|null) => void;
-    move: (original: IBaseDef, def: IBaseDef, newStart: IStart) => Promise<void>;
-    resize: (original: IBaseDef, def: IBaseDef, newSize: ISize) => Promise<void>;
+    move: (original: IBaseDef, newStart: IStart) => Promise<void>;
+    resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
     remove: (def: IBaseDef) => void;
     removeVolatile: (def: IBaseDef) => void;
+    calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
   };
   view: {
-    calc: (element: IBaseDef, parent: IParentDef, position: number) => Promise<IBaseDef|null>;
+    calc: (element: IBaseDef, parent?: IParentDef, position?: number) => Promise<IBaseDef|null>;
     draw: (element: IBaseDef) => void;
     redraw: (layout?: Layout) => void;
     recalculate: (parent?: IParentDef, layout?: Layout) => Promise<Layout>;
@@ -150,9 +168,9 @@ export class AntetypeCore {
 
   async #getCore(modules: Modules, canvas: HTMLCanvasElement|null): Promise<ICore> {
     if (!this.#core) {
-      const module = this.#injected!.minstrel.getResourceUrl(this as Module, 'core.js');
-      this.#moduleCore = (await import(module)).default;
-      this.#core = this.#moduleCore!({ canvas, modules, injected: this.#injected! });
+      const module = this.#injected!.minstrel.getResourceUrl(this, 'core.js');
+      this.#moduleCore = (await import(module)).default as typeof Core;
+      this.#core = this.#moduleCore({ canvas, modules, injected: this.#injected! });
     }
 
     return this.#core;
@@ -215,5 +233,5 @@ export class AntetypeCore {
   }
 }
 
-const EnAntetypeCore: IInjectable&ISubscriber = AntetypeCore;
+const EnAntetypeCore: IInjectable<IInjected> & ISubscriber = AntetypeCore;
 export default EnAntetypeCore;

@@ -34,14 +34,34 @@ export default function Core(
       draw(layer);
     }
   }
+  const _assignHierarchy = (element: IBaseDef, parent: IParentDef|null, position: number): void => {
+    element.hierarchy ??= {
+      parent,
+      position,
+    };
+
+    if (parent) {
+      element.hierarchy.parent = parent;
+    }
+    if (position) {
+      element.hierarchy.position = position;
+    }
+  }
 
   const calc = async (element: IBaseDef, parent: IParentDef|null = null, position = 0): Promise<IBaseDef|null> => {
-    element.hierarchy = { parent, position };
+    const original = getOriginal(element);
+    _assignHierarchy(original, parent ? getOriginal(parent) : null, position)
+
     const event = new CustomEvent(Event.CALC, { detail: { element: element } as CalcEvent });
     await herald.dispatch(event);
 
-    if (event.detail.element !== null) markAsLayer(event.detail.element);
-    return event.detail.element;
+    const clone = event.detail.element;
+    if (clone !== null) {
+      markAsLayer(clone);
+      _assignHierarchy(clone, parent ? getClone(parent) : null, position);
+    }
+
+    return clone;
   }
 
   const isLayer = (layer: Record<symbol, unknown>): boolean => layer[layerPolicy] === true;
@@ -65,7 +85,7 @@ export default function Core(
     return calculated;
   }
 
-  const calcAndUpdateLayer = async (original: IBaseDef, def: IBaseDef): Promise<void> => {
+  const calcAndUpdateLayer = async (original: IBaseDef): Promise<void> => {
     if (!original.hierarchy?.parent) {
       return;
     }
@@ -76,24 +96,24 @@ export default function Core(
     const newLayer = await calc(original, parent, position);
 
     if (newLayer === null) {
-      remove(def);
-      removeVolatile(def);
+      remove(original);
+      removeVolatile(original);
       return;
     }
 
-    parent.layout[position] = newLayer;
+    getClone(parent).layout[position] = newLayer;
   }
 
-  const move = async (original: IBaseDef, def: IBaseDef, newStart: IStart): Promise<void> => {
+  const move = async (original: IBaseDef, newStart: IStart): Promise<void> => {
     original.start = newStart;
 
-    await calcAndUpdateLayer(original, def);
+    await calcAndUpdateLayer(original);
   }
 
-  const resize = async (original: IBaseDef, def: IBaseDef, newSize: ISize): Promise<void> => {
+  const resize = async (original: IBaseDef, newSize: ISize): Promise<void> => {
     original.size = newSize;
 
-    await calcAndUpdateLayer(original, def);
+    await calcAndUpdateLayer(original);
   }
 
   const add = (def: IBaseDef, parent: IParentDef|null = null, position: number|null = null): void => {
@@ -101,8 +121,11 @@ export default function Core(
       parent = getOriginal<IParentDef>(parent);
     }
 
-    const layout = parent ? parent.layout : __DOCUMENT.base;
+    let layout = parent ? parent.layout : __DOCUMENT.base;
     parent ??= __DOCUMENT;
+    if (parent.base) {
+      layout = (parent as IDocumentDef).base;
+    }
     position ??= layout.length;
 
     insert(def, parent, position, layout);
@@ -125,6 +148,18 @@ export default function Core(
       position,
       parent,
     };
+    recalculatePositionInLayout(layout);
+  }
+
+  const recalculatePositionInLayout = (layout: Layout): void => {
+    for (let i = 0; i < layout.length; i++) {
+      const layer = layout[i];
+      if (!layer.hierarchy) {
+        continue;
+      }
+
+      layer.hierarchy.position = i;
+    }
   }
 
   const remove = (def: IBaseDef): void => {
@@ -135,17 +170,12 @@ export default function Core(
     const position = def.hierarchy.position;
     const parent = getOriginal<IParentDef>(def.hierarchy.parent);
     const layout = (parent?.type === 'document' ? (parent as IDocumentDef).base : parent?.layout) ?? [];
+    if (layout[position] !== getOriginal(def)) {
+      return;
+    }
     layout.splice(position, 1);
 
-    // Recalculating all just to be sure
-    for (let i = 0; i < layout.length; i++) {
-      const layer = layout[i];
-      if (!layer.hierarchy) {
-        continue;
-      }
-
-      layer.hierarchy.position = i;
-    }
+    recalculatePositionInLayout(layout);
   }
 
   const removeVolatile = (def: IBaseDef): void => {
@@ -156,17 +186,12 @@ export default function Core(
     const position = def.hierarchy.position;
     const parent = getClone<IParentDef>(def.hierarchy.parent);
     const layout = parent.layout;
+    if (layout[position] !== getClone(def)) {
+      return;
+    }
     layout.splice(position, 1);
 
-    // Recalculating all just to be sure
-    for (let i = 0; i < layout.length; i++) {
-      const layer = layout[i];
-      if (!layer.hierarchy) {
-        continue;
-      }
-
-      layer.hierarchy.position = i;
-    }
+    recalculatePositionInLayout(layout);
   }
 
   const loadFont = async (font: IFont): Promise<void> => {
@@ -206,6 +231,7 @@ export default function Core(
       removeVolatile,
       add,
       addVolatile,
+      calcAndUpdateLayer,
     },
     view: {
       calc,

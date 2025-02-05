@@ -3,15 +3,6 @@
 import React$1 from 'react';
 import { RouteProps } from 'react-router-dom';
 
-interface ModulesEvent {
-	modules: Modules;
-	canvas: HTMLCanvasElement | null;
-}
-interface Module {
-}
-interface Modules {
-	[key: string]: Module | undefined;
-}
 interface EntryConfig {
 	source: string | object;
 	namespace: string;
@@ -33,21 +24,25 @@ interface RegisterConfig {
 		src: string;
 	};
 }
-type Module$1 = Record<string, unknown>;
+declare class CModule<T = any> {
+	constructor(...args: unknown[]);
+	inject?: (injections: T) => void;
+}
+type Module<T = any> = CModule<T> | Record<string, unknown>;
 interface IModuleImportObject {
-	default?: Module$1 | React$1.FC | ((...args: unknown[]) => void);
+	default?: Module | ((...args: unknown[]) => void);
 }
 interface IModuleImport {
 	config: RegisterConfig;
-	module: IModuleImportObject | (() => Promise<Module$1>);
+	module: IModuleImportObject | (() => Promise<Module>);
 }
-declare class _IInjectable {
+declare class _IInjectable<T = object> {
 	constructor(...args: unknown[]);
-	inject(injections: Record<string, object>): void;
+	inject(injections: T): void;
 	scope?(): Record<string, unknown>;
 	static inject: Record<string, string>;
 }
-type IInjectable = typeof _IInjectable;
+type IInjectable<T> = typeof _IInjectable<T>;
 declare class Marshal {
 	static version: string;
 	renderCount: number;
@@ -55,7 +50,7 @@ declare class Marshal {
 	loaded: Record<string, object>;
 	tagMap: Record<string, IModuleImport[]>;
 	scope: Record<string, unknown>;
-	instanceMap: WeakMap<Module$1, RegisterConfig>;
+	instanceMap: WeakMap<Module<any>, RegisterConfig>;
 	constructor();
 	addScope(name: string, value: unknown): void;
 	render(): void;
@@ -66,10 +61,10 @@ declare class Marshal {
 	loadScopes(): Promise<Record<string, RegisterConfig>>;
 	updateTagModules(): void;
 	tagModules(moduleImport: IModuleImport): void;
-	instantiateModule(moduleImport: IModuleImport): Module$1;
-	mapInstance(config: RegisterConfig, module: Module$1): void;
-	getMappedInstance(module: Module$1): RegisterConfig | undefined;
-	loadDependencies(module: Module$1, config: RegisterConfig): Record<string, object> | undefined | false;
+	instantiateModule(moduleImport: IModuleImport): Module;
+	mapInstance(config: RegisterConfig, module: Module): void;
+	getMappedInstance(module: Module): RegisterConfig | undefined;
+	loadDependencies(module: Module, config: RegisterConfig): Record<string, object> | undefined | false;
 	isESClass(fn: unknown): boolean;
 	orderModules(moduleRegistry: Record<string, RegisterConfig>): RegisterConfig[];
 	generateLoadGroups(toSend: Record<string, RegisterConfig>): Promise<IModuleImport>[];
@@ -89,7 +84,7 @@ type Subscriptions = Record<string, AmbiguousSubscription>;
 interface Subscription {
 	method: string | EventHandler;
 	priority?: number;
-	constraint?: string | Module$1 | null;
+	constraint?: string | Module | null;
 	index?: number;
 }
 interface ISubscriberObject {
@@ -99,7 +94,7 @@ interface ISubscriberObject {
 interface IEventRegistration {
 	event: string;
 	subscription: AmbiguousSubscription;
-	constraint?: string | Module$1 | null;
+	constraint?: string | Module | null;
 	sort?: boolean;
 	symbol?: symbol | null;
 }
@@ -114,7 +109,7 @@ declare class Herald {
 	dispatch(event: CustomEvent): Promise<void>;
 	dispatchSync(event: CustomEvent): void;
 	batch(events: IEventRegistration[]): () => void;
-	register(event: string, subscription: AmbiguousSubscription, constraint?: string | Module$1 | null, sort?: boolean, symbol?: symbol | null): () => void;
+	register(event: string, subscription: AmbiguousSubscription, constraint?: string | Module | null, sort?: boolean, symbol?: symbol | null): () => void;
 	unregister(event: string, symbol: symbol): void;
 }
 type PathProps = JSX.IntrinsicAttributes & RouteProps;
@@ -138,15 +133,26 @@ declare class Minstrel {
 	getMenu(): INavItem[];
 	addMenuItem(item: INavItem): void;
 	setMenu(newMenu: INavItem[]): void;
-	getModuleConfig(module: Module$1): RegisterConfig;
-	getResourceUrl(module: Module$1, suffix: string): string;
-	lazy(module: Module$1, suffix: string, props?: Record<string, any>): React$1.ReactNode;
-	component<T>(module: Module$1, suffix: string, scope?: Record<string, any>): React$1.FC<T>;
-	asset(module: Module$1, suffix: string): string;
+	getModuleConfig(module: Module): RegisterConfig;
+	getResourceUrl(module: Module, suffix: string): string;
+	lazy(module: Module, suffix: string, props?: Record<string, any>): React$1.ReactNode;
+	component<T>(module: Module, suffix: string, scope?: Record<string, any>): React$1.FC<T>;
+	asset(module: Module, suffix: string): string;
 }
 declare type UnknownRecord = Record<symbol | string, unknown>;
+export interface ModulesEvent {
+	modules: Modules;
+	canvas: HTMLCanvasElement | null;
+}
+interface Module$1 {
+}
+export interface Modules {
+	[key: string]: Module$1 | undefined;
+	core: ICore;
+}
 declare enum Event$1 {
 	INIT = "antetype.init",
+	CLOSE = "antetype.close",
 	DRAW = "antetype.draw",
 	CALC = "antetype.calc"
 }
@@ -162,6 +168,8 @@ export interface ISettings {
 export interface InitEvent {
 	base: Layout;
 	settings: ISettings;
+}
+interface CloseEvent$1 {
 }
 export declare type XValue = number;
 export declare type YValue = XValue;
@@ -223,7 +231,7 @@ export interface IFont {
 	url: string;
 	name: string;
 }
-export interface ICore {
+export interface ICore extends Module$1 {
 	meta: {
 		document: IDocumentDef;
 	};
@@ -236,13 +244,14 @@ export interface ICore {
 		markAsLayer: (layer: IBaseDef) => IBaseDef;
 		add: (def: IBaseDef, parent?: IParentDef | null, position?: number | null) => void;
 		addVolatile: (def: IBaseDef, parent?: IParentDef | null, position?: number | null) => void;
-		move: (original: IBaseDef, def: IBaseDef, newStart: IStart) => Promise<void>;
-		resize: (original: IBaseDef, def: IBaseDef, newSize: ISize) => Promise<void>;
+		move: (original: IBaseDef, newStart: IStart) => Promise<void>;
+		resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
 		remove: (def: IBaseDef) => void;
 		removeVolatile: (def: IBaseDef) => void;
+		calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
 	};
 	view: {
-		calc: (element: IBaseDef, parent: IParentDef, position: number) => Promise<IBaseDef | null>;
+		calc: (element: IBaseDef, parent?: IParentDef, position?: number) => Promise<IBaseDef | null>;
 		draw: (element: IBaseDef) => void;
 		redraw: (layout?: Layout) => void;
 		recalculate: (parent?: IParentDef, layout?: Layout) => Promise<Layout>;
@@ -271,11 +280,13 @@ export declare class AntetypeCore {
 	cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void>;
 	static subscriptions: Subscriptions;
 }
-declare const EnAntetypeCore: IInjectable & ISubscriber;
+declare const EnAntetypeCore: IInjectable<IInjected> & ISubscriber;
 
 export {
+	CloseEvent$1 as CloseEvent,
 	EnAntetypeCore as default,
 	Event$1 as Event,
+	Module$1 as Module,
 };
 
 export {};
