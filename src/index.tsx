@@ -213,7 +213,7 @@ export class AntetypeCore {
 
 
     doc.layout = await this.#core.view.recalculate(doc, doc.base);
-    await this.#core.view.redraw(doc.layout);
+    this.#core.view.redraw(doc.layout);
 
     return doc;
   }

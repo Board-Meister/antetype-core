@@ -47,7 +47,7 @@ var AntetypeCore = class {
     });
     await Promise.all(promises);
     doc.layout = await this.#core.view.recalculate(doc, doc.base);
-    await this.#core.view.redraw(doc.layout);
+    this.#core.view.redraw(doc.layout);
     return doc;
   }
   async cloneDefinitions(event) {
