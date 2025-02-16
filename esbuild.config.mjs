@@ -14,7 +14,7 @@ await esbuild.build({
     ...globSync(resolve(__dirname, 'src/core.tsx')),
   ],
   bundle: true,
-  minify: true,
+  // minify: true,
   format: 'esm',
   outdir: './dist',
   platform: 'browser',

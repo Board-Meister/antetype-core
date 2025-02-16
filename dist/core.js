@@ -1,1 +1,345 @@
-var T=(a=>(a.STRUCTURE="antetype.structure",a.MIDDLE="antetype.structure.middle",a.BAR_BOTTOM="antetype.structure.bar.bottom",a.CENTER="antetype.structure.center",a.COLUMN_LEFT="antetype.structure.column.left",a.COLUMN_RIGHT="antetype.structure.column.right",a.BAR_TOP="antetype.structure.bar.top",a.MODULES="antetype.modules",a.ACTIONS="antetype.structure.column.left.actions",a.PROPERTIES="antetype.structure.column.left.properties",a.SHOW_PROPERTIES="antetype.structure.column.left.properties.show",a))(T||{});var E=class{#t;#n=null;#e=null;static inject={minstrel:"boardmeister/minstrel",herald:"boardmeister/herald"};inject(i){this.#t=i}async#o(i,f){if(!this.#e){let u=this.#t.minstrel.getResourceUrl(this,"core.js");this.#n=(await import(u)).default,this.#e=this.#n({canvas:f,modules:i,injected:this.#t})}return this.#e}async register(i){let{modules:f,canvas:u}=i.detail;f.core=await this.#o(f,u)}async init(i){if(!this.#e)throw new Error("Instance not loaded, trigger registration event first");let{base:f,settings:u}=i.detail;for(let m in u)this.#e.setting.set(m,u[m]);let l=this.#e.meta.document;l.base=f;let D=[];return(this.#e.setting.get("fonts")??[]).forEach(m=>{D.push(this.#e.font.load(m))}),await Promise.all(D),l.layout=await this.#e.view.recalculate(l,l.base),await this.#e.view.redraw(l.layout),l}async cloneDefinitions(i){if(!this.#e)throw new Error("Instance not loaded, trigger registration event first");i.detail.element!==null&&(i.detail.element=await this.#e.clone.definitions(i.detail.element))}static subscriptions={[T.MODULES]:"register","antetype.init":"init","antetype.calc":[{method:"cloneDefinitions",priority:-255}]}};function x({modules:a,canvas:i}){let f=i.getContext("2d"),u=50,l=Symbol("original"),D=Symbol("clone"),m=n=>typeof n=="object"&&!Array.isArray(n)&&n!==null,p=function(n){return n[l]??n},w=function(n){return n[D]??n},y=async(n,c,I=0)=>{if(c.has(n))return c.get(n);if(n[l]||n.type==="document")return n;let d={};if(c.set(n,d),d[l]=n,n[D]=d,u<=I+1)throw console.error("We've reach limit depth!",n),new Error("limit reached");return await Promise.all(Object.keys(n).map(async h=>{let s=await b(n[h],n);m(s)?s=await y(s,c,I+1):Array.isArray(s)&&(s=await v(s,c,I+1)),d[h]=s})),d},v=async(n,c,I=0)=>{let d=[];if(u<=I+1)throw console.error("We've reach limit depth!",n),new Error("limit reached");return await Promise.all(n.map(async h=>{let s=await b(h,n);m(s)?s=await y(s,c,I+1):Array.isArray(s)&&(s=await v(s,c,I+1)),d.push(s)})),d},b=async(n,c)=>typeof n=="function"?await n(a,f,c):n;return{isClone:n=>n[l]===!0,cloneDefinitions:async n=>await y(n,new WeakMap),getClone:w,getOriginal:p}}function O(a){let{canvas:i,injected:{herald:f}}=a;if(!i)throw new Error("[Antetype Workspace] Provided canvas is empty");let u={},l=Symbol("layer"),{cloneDefinitions:D,isClone:m,getOriginal:p,getClone:w}=x(a),y={type:"document",base:[],layout:[],start:{x:0,y:0},size:{w:0,h:0}},v=e=>{f.dispatchSync(new CustomEvent("antetype.draw",{detail:{element:e}}))},b=(e=y.layout)=>{for(let t of e)v(t)},k=(e,t,o)=>{e.hierarchy??={parent:t,position:o},t&&(e.hierarchy.parent=t),o&&(e.hierarchy.position=o)},P=async(e,t=null,o=0)=>{let r=p(e);k(r,t?p(t):null,o);let g=new CustomEvent("antetype.calc",{detail:{element:e}});await f.dispatch(g);let C=g.detail.element;return C!==null&&(c(C),k(C,t?w(t):null,o)),C},n=e=>e[l]===!0,c=e=>(e[l]=!0,e),I=async(e=y,t=y.base)=>{c(e);let o=[];for(let r=0;r<t.length;r++){let g=await P(t[r],e,r);g!==null&&o.push(g)}return e.layout=o,o},d=async e=>{if(!e.hierarchy?.parent)return;let t=e.hierarchy.position,o=e.hierarchy.parent,r=await P(e,o,t);if(r===null){L(e),S(e);return}w(o).layout[t]=r},h=async(e,t)=>{e.start=t,await d(e)},s=async(e,t)=>{e.size=t,await d(e)},U=(e,t=null,o=null)=>{t&&m(t)&&(t=p(t));let r=t?t.layout:y.base;t??=y,t.base&&(r=t.base),o??=r.length,B(e,t,o,r)},M=(e,t=null,o=null)=>{t&&!m(t)&&(t=w(t)),t??=y,o??=t.layout.length,B(e,t,o,t.layout)},B=(e,t,o,r)=>{r.splice(o,0,e),e.hierarchy={position:o,parent:t},R(r)},R=e=>{for(let t=0;t<e.length;t++){let o=e[t];o.hierarchy&&(o.hierarchy.position=t)}},L=e=>{if(!e.hierarchy?.parent)return;let t=e.hierarchy.position,o=p(e.hierarchy.parent),r=(o?.type==="document"?o.base:o?.layout)??[];r[t]===p(e)&&(r.splice(t,1),R(r))},S=e=>{if(!e.hierarchy?.parent)return;let t=e.hierarchy.position,r=w(e.hierarchy.parent).layout;r[t]===w(e)&&(r.splice(t,1),R(r))},A=async e=>{let t=new FontFace(e.name,"url("+e.url+")");document.fonts.add(await t.load())};return{meta:{document:y},clone:{definitions:D,getOriginal:p,getClone:w},manage:{markAsLayer:c,move:h,resize:s,remove:L,removeVolatile:S,add:U,addVolatile:M,calcAndUpdateLayer:d},view:{calc:P,recalculate:I,draw:v,redraw:b,redrawDebounce:((e,t=100)=>{let o;return(...r)=>{clearTimeout(o),r[0]!=="clear"&&(o=setTimeout(()=>{e.apply({},r)},t))}})(b)},policies:{isLayer:n,isClone:m},font:{load:A},setting:{set(e,t){u[e]=t},get(e){return u[e]??null},has:e=>!!(u[e]??!1)}}}export{O as default};
+// src/clone.tsx
+function Clone({ modules, canvas }) {
+  const ctx = canvas.getContext("2d");
+  const maxDepth = 50;
+  const originalSymbol = Symbol("original");
+  const cloneSymbol = Symbol("clone");
+  const isObject = (value) => {
+    return typeof value === "object" && !Array.isArray(value) && value !== null;
+  };
+  const getOriginal = function(object) {
+    return object[originalSymbol] ?? object;
+  };
+  const getClone = function(object) {
+    return object[cloneSymbol] ?? object;
+  };
+  const iterateResolveAndCloneObject = async (object, recursive, depth = 0) => {
+    if (recursive.has(object)) {
+      return recursive.get(object);
+    }
+    if (object[originalSymbol] || object.type === "document") {
+      return object;
+    }
+    const clone = {};
+    recursive.set(object, clone);
+    clone[originalSymbol] = object;
+    object[cloneSymbol] = clone;
+    if (maxDepth <= depth + 1) {
+      console.error("We've reach limit depth!", object);
+      throw new Error("limit reached");
+    }
+    await Promise.all(Object.keys(object).map(async (key) => {
+      let result = await resolve(object[key], object);
+      if (isObject(result)) {
+        result = await iterateResolveAndCloneObject(result, recursive, depth + 1);
+      } else if (Array.isArray(result)) {
+        result = await iterateResolveAndCloneArray(result, recursive, depth + 1);
+      }
+      clone[key] = result;
+    }));
+    return clone;
+  };
+  const iterateResolveAndCloneArray = async (object, recursive, depth = 0) => {
+    const clone = [];
+    if (maxDepth <= depth + 1) {
+      console.error("We've reach limit depth!", object);
+      throw new Error("limit reached");
+    }
+    await Promise.all(object.map(async (value) => {
+      let result = await resolve(value, object);
+      if (isObject(result)) {
+        result = await iterateResolveAndCloneObject(result, recursive, depth + 1);
+      } else if (Array.isArray(result)) {
+        result = await iterateResolveAndCloneArray(result, recursive, depth + 1);
+      }
+      clone.push(result);
+    }));
+    return clone;
+  };
+  const resolve = async (value, object) => {
+    return typeof value == "function" ? await value(modules, ctx, object) : value;
+  };
+  const cloneDefinitions = async (data) => {
+    return await iterateResolveAndCloneObject(data, /* @__PURE__ */ new WeakMap());
+  };
+  const isClone = (layer) => layer[originalSymbol] === true;
+  return {
+    isClone,
+    cloneDefinitions,
+    getClone,
+    getOriginal
+  };
+}
+
+// src/core.tsx
+function Core(parameters) {
+  const {
+    canvas,
+    injected: { herald }
+  } = parameters;
+  if (!canvas) {
+    throw new Error("[Antetype Workspace] Provided canvas is empty");
+  }
+  const sessionQueue = [];
+  const calcQueue = [];
+  const settings = {};
+  const layerPolicy = Symbol("layer");
+  const { cloneDefinitions, isClone, getOriginal, getClone } = Clone(parameters);
+  const __DOCUMENT = {
+    type: "document",
+    base: [],
+    layout: [],
+    start: { x: 0, y: 0 },
+    size: { w: 0, h: 0 }
+  };
+  console.log(__DOCUMENT);
+  const debounce = (func, timeout = 100) => {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      if (args[0] === "clear") {
+        return;
+      }
+      timer = setTimeout(() => {
+        void func.apply({}, args);
+      }, timeout);
+    };
+  };
+  const debounceRecalculatedEvent = debounce(() => {
+    void herald.dispatch(new CustomEvent("antetype.recalc.finished" /* RECALC_FINISHED */));
+  });
+  const debounceCalcQueueCheck = debounce(async () => {
+    if (calcQueue.length == 0) {
+      return;
+    }
+    await calcQueue.shift()();
+    debounceCalcQueueCheck();
+  });
+  const draw = (element) => {
+    herald.dispatchSync(new CustomEvent("antetype.draw" /* DRAW */, { detail: { element } }));
+  };
+  const redraw = (layout = __DOCUMENT.layout) => {
+    for (const layer of layout) {
+      draw(layer);
+    }
+  };
+  const assignHierarchy = (element, parent, position) => {
+    element.hierarchy ??= {
+      parent,
+      position
+    };
+    if (parent) {
+      element.hierarchy.parent = parent;
+    }
+    if (position) {
+      element.hierarchy.position = position;
+    }
+  };
+  const moveCalculationToQueue = (func) => {
+    let trigger = false;
+    const promise = new Promise(async (resolve) => {
+      while (!trigger) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      void func().then((result) => {
+        resolve(result);
+      });
+    });
+    calcQueue.push(() => {
+      trigger = true;
+      return promise;
+    });
+    debounceCalcQueueCheck();
+    return promise;
+  };
+  const calc = async (element, parent = null, position = null, currentSession = null) => {
+    if (currentSession !== (sessionQueue[0] ?? null)) {
+      return moveCalculationToQueue(() => calc(element, parent, position, currentSession));
+    }
+    const original = getOriginal(element);
+    position ??= original.hierarchy?.position ?? 0;
+    assignHierarchy(original, parent ? getOriginal(parent) : null, position);
+    const event = new CustomEvent("antetype.calc" /* CALC */, { detail: { element, sessionId: currentSession } });
+    await herald.dispatch(event);
+    const clone = event.detail.element;
+    if (clone !== null) {
+      markAsLayer(clone);
+      assignHierarchy(clone, parent ? getClone(parent) : null, position);
+    }
+    return clone;
+  };
+  const generateId = () => Math.random().toString(16).slice(2);
+  const isLayer = (layer) => typeof getOriginal(layer)[layerPolicy] == "number";
+  const markAsLayer = (layer) => {
+    layer[layerPolicy] = true;
+    getOriginal(layer).id ??= generateId();
+    const clone = getClone(layer);
+    if (!clone.id) {
+      Object.defineProperty(clone, "id", {
+        get() {
+          return getOriginal(layer).id;
+        }
+      });
+    }
+    return layer;
+  };
+  const startSession = () => {
+    const sessionId = Symbol("illustrator_session_id" + String(Math.random()));
+    sessionQueue.push(sessionId);
+    return sessionId;
+  };
+  const stopSession = () => {
+    sessionQueue.shift();
+  };
+  const recalculate = async (parent = __DOCUMENT, layout = __DOCUMENT.base, startedSession = null) => {
+    const currentSession = startedSession ?? startSession();
+    markAsLayer(parent);
+    const calculated = [];
+    for (let i = 0; i < layout.length; i++) {
+      const calcLayer = await calc(layout[i], parent, i, currentSession);
+      if (calcLayer !== null) calculated.push(calcLayer);
+    }
+    parent.layout = calculated;
+    debounceRecalculatedEvent();
+    if (!startedSession) {
+      stopSession();
+    }
+    return calculated;
+  };
+  const calcAndUpdateLayer = async (original) => {
+    if (!original.hierarchy?.parent) {
+      return;
+    }
+    const position = original.hierarchy.position;
+    const parent = original.hierarchy.parent;
+    const newLayer = await calc(original, parent, position);
+    if (newLayer === null) {
+      remove(original);
+      removeVolatile(original);
+      return;
+    }
+    getClone(parent).layout[position] = newLayer;
+  };
+  const move = async (original, newStart) => {
+    original.start = newStart;
+    await calcAndUpdateLayer(original);
+  };
+  const resize = async (original, newSize) => {
+    original.size = newSize;
+    await calcAndUpdateLayer(original);
+  };
+  const add = (def, parent = null, position = null) => {
+    if (parent && isClone(parent)) {
+      parent = getOriginal(parent);
+    }
+    let layout = parent ? parent.layout : __DOCUMENT.base;
+    parent ??= __DOCUMENT;
+    if (parent.base) {
+      layout = parent.base;
+    }
+    position ??= layout.length;
+    insert(def, parent, position, layout);
+  };
+  const addVolatile = (def, parent = null, position = null) => {
+    if (parent && !isClone(parent)) {
+      parent = getClone(parent);
+    }
+    parent ??= __DOCUMENT;
+    position ??= parent.layout.length;
+    insert(def, parent, position, parent.layout);
+  };
+  const insert = (def, parent, position, layout) => {
+    layout.splice(position, 0, def);
+    def.hierarchy = {
+      position,
+      parent
+    };
+    recalculatePositionInLayout(layout);
+  };
+  const recalculatePositionInLayout = (layout) => {
+    for (let i = 0; i < layout.length; i++) {
+      const layer = layout[i];
+      if (!layer.hierarchy) {
+        continue;
+      }
+      layer.hierarchy.position = i;
+    }
+  };
+  const remove = (def) => {
+    if (!def.hierarchy?.parent) {
+      return;
+    }
+    const position = def.hierarchy.position;
+    const parent = getOriginal(def.hierarchy.parent);
+    const layout = (parent?.type === "document" ? parent.base : parent?.layout) ?? [];
+    if (layout[position] !== getOriginal(def)) {
+      return;
+    }
+    layout.splice(position, 1);
+    recalculatePositionInLayout(layout);
+  };
+  const removeVolatile = (def) => {
+    if (!def.hierarchy?.parent) {
+      return;
+    }
+    const position = def.hierarchy.position;
+    const parent = getClone(def.hierarchy.parent);
+    const layout = parent.layout;
+    if (layout[position] !== getClone(def)) {
+      return;
+    }
+    layout.splice(position, 1);
+    recalculatePositionInLayout(layout);
+  };
+  const loadFont = async (font) => {
+    const myFont = new FontFace(font.name, "url(" + font.url + ")");
+    document.fonts.add(await myFont.load());
+  };
+  return {
+    meta: {
+      document: __DOCUMENT,
+      generateId
+    },
+    clone: {
+      definitions: cloneDefinitions,
+      getOriginal,
+      getClone
+    },
+    manage: {
+      markAsLayer,
+      move,
+      resize,
+      remove,
+      removeVolatile,
+      add,
+      addVolatile,
+      calcAndUpdateLayer
+    },
+    view: {
+      calc,
+      recalculate,
+      draw,
+      redraw,
+      redrawDebounce: debounce(redraw)
+    },
+    policies: {
+      isLayer,
+      isClone
+    },
+    font: {
+      load: loadFont
+    },
+    setting: {
+      set(name, value) {
+        settings[name] = value;
+      },
+      get(name) {
+        return settings[name] ?? null;
+      },
+      has: (name) => !!(settings[name] ?? false)
+    }
+  };
+}
+export {
+  Core as default
+};

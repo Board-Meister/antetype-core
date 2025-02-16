@@ -1,5 +1,17 @@
 import {
-  IBaseDef, IParameters, ICore, IFont, IParentDef, ISize, IStart, Event, DrawEvent, CalcEvent, Layout, IDocumentDef
+  IBaseDef,
+  IParameters,
+  ICore,
+  IFont,
+  IParentDef,
+  ISize,
+  IStart,
+  Event,
+  DrawEvent,
+  CalcEvent,
+  Layout,
+  IDocumentDef,
+  RecalculateFinishedEvent
 } from "@src/index";
 import Clone from "@src/clone";
 
@@ -13,6 +25,8 @@ export default function Core(
   if (!canvas) {
     throw new Error('[Antetype Workspace] Provided canvas is empty')
   }
+  const sessionQueue: symbol[] = [];
+  const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
   const settings: Record<string, any> = {};
   const layerPolicy = Symbol('layer');
   const { cloneDefinitions, isClone, getOriginal, getClone } = Clone(parameters);
@@ -24,6 +38,34 @@ export default function Core(
     start: { x: 0, y: 0 },
     size: { w: 0, h: 0 },
   };
+  console.log(__DOCUMENT)
+
+  const debounce = (func: (...args: any[]) => void|Promise<void>, timeout = 100): () => void => {
+    let timer: ReturnType<typeof setTimeout>;
+    return (...args: unknown[]): void => {
+      clearTimeout(timer);
+      if (args[0] === 'clear') {
+        return;
+      }
+
+      timer = setTimeout(() => {
+        void func.apply({}, args);
+      }, timeout);
+    };
+  }
+
+  const debounceRecalculatedEvent = debounce(() => {
+    void herald.dispatch(new CustomEvent<RecalculateFinishedEvent>(Event.RECALC_FINISHED));
+  })
+
+  const debounceCalcQueueCheck = debounce(async (): Promise<void> => {
+    if (calcQueue.length == 0) {
+      return;
+    }
+
+    await calcQueue.shift()!();
+    debounceCalcQueueCheck();
+  })
 
   const draw = (element: IBaseDef): void => {
     herald.dispatchSync(new CustomEvent(Event.DRAW, { detail: { element } as DrawEvent }));
@@ -34,7 +76,8 @@ export default function Core(
       draw(layer);
     }
   }
-  const _assignHierarchy = (element: IBaseDef, parent: IParentDef|null, position: number): void => {
+
+  const assignHierarchy = (element: IBaseDef, parent: IParentDef|null, position: number): void => {
     element.hierarchy ??= {
       parent,
       position,
@@ -48,39 +91,99 @@ export default function Core(
     }
   }
 
-  const calc = async (element: IBaseDef, parent: IParentDef|null = null, position = 0): Promise<IBaseDef|null> => {
-    const original = getOriginal(element);
-    _assignHierarchy(original, parent ? getOriginal(parent) : null, position)
+  const moveCalculationToQueue = (func: () => Promise<IBaseDef|null>): Promise<IBaseDef|null> => {
+    let trigger = false;
+    const promise = new Promise<IBaseDef|null>(async (resolve): Promise<void> => {
+      while (!trigger) {
+        await new Promise(r => setTimeout(r, 100));
+      }
 
-    const event = new CustomEvent(Event.CALC, { detail: { element: element } as CalcEvent });
+      void func().then(result => {
+        resolve(result);
+      })
+    });
+    calcQueue.push(() => {
+      trigger = true;
+      return promise;
+    });
+    debounceCalcQueueCheck();
+
+    return promise;
+  }
+
+  const calc = async (
+    element: IBaseDef,
+    parent: IParentDef|null = null,
+    position: number|null = null,
+    currentSession: symbol|null = null,
+  ): Promise<IBaseDef|null> => {
+    if (currentSession !== (sessionQueue[0] ?? null)) {
+      return moveCalculationToQueue(() => calc(element, parent, position, currentSession));
+    }
+    const original = getOriginal(element);
+    position ??= original.hierarchy?.position ?? 0;
+    assignHierarchy(original, parent ? getOriginal(parent) : null, position)
+
+    const event = new CustomEvent<CalcEvent>(Event.CALC, { detail: { element, sessionId: currentSession } });
     await herald.dispatch(event);
 
     const clone = event.detail.element;
     if (clone !== null) {
       markAsLayer(clone);
-      _assignHierarchy(clone, parent ? getClone(parent) : null, position);
+      assignHierarchy(clone, parent ? getClone(parent) : null, position);
     }
 
     return clone;
   }
 
-  const isLayer = (layer: Record<symbol, unknown>): boolean => layer[layerPolicy] === true;
+  const generateId = (): string => Math.random().toString(16).slice(2);
+  const isLayer = (layer: Record<symbol, unknown>): boolean => typeof getOriginal(layer)[layerPolicy] == 'number';
   const markAsLayer = (layer: IBaseDef): IBaseDef => {
     layer[layerPolicy] = true;
+    getOriginal(layer).id ??= generateId();
+    const clone = getClone(layer);
+    if (!clone.id) {
+      Object.defineProperty(clone, "id", {
+        get () {
+          return getOriginal(layer).id
+        },
+      });
+    }
 
     return layer;
   }
 
-  const recalculate = async (parent: IParentDef = __DOCUMENT, layout: Layout = __DOCUMENT.base): Promise<Layout> => {
+  const startSession = (): symbol => {
+    const sessionId = Symbol('illustrator_session_id' + String(Math.random()));
+    sessionQueue.push(sessionId);
+
+    return sessionId;
+  }
+
+  const stopSession = (): void => {
+    sessionQueue.shift();
+  }
+
+  const recalculate = async (
+    parent: IParentDef = __DOCUMENT,
+    layout: Layout = __DOCUMENT.base,
+    startedSession: symbol|null = null,
+  ): Promise<Layout> => {
+    const currentSession = startedSession ?? startSession();
     markAsLayer(parent);
 
     const calculated: Layout = [];
     for (let i = 0; i < layout.length; i++) {
-      const calcLayer = await calc(layout[i], parent, i);
+      const calcLayer = await calc(layout[i], parent, i, currentSession);
       if (calcLayer !== null) calculated.push(calcLayer);
     }
 
     parent.layout = calculated;
+    debounceRecalculatedEvent();
+
+    if (!startedSession) {
+      stopSession();
+    }
 
     return calculated;
   }
@@ -200,23 +303,10 @@ export default function Core(
     document.fonts.add(await myFont.load());
   }
 
-  const debounce = (func: (...args: any[]) => void, timeout = 100): () => void => {
-    let timer: ReturnType<typeof setTimeout>;
-    return (...args: unknown[]): void => {
-      clearTimeout(timer);
-      if (args[0] === 'clear') {
-        return;
-      }
-
-      timer = setTimeout(() => {
-        func.apply({}, args);
-      }, timeout);
-    };
-  }
-
   return {
     meta: {
       document: __DOCUMENT,
+      generateId,
     },
     clone: {
       definitions: cloneDefinitions,

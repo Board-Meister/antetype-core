@@ -141,11 +141,10 @@ declare class Minstrel {
 }
 declare type UnknownRecord = Record<symbol | string, unknown>;
 export interface ModulesEvent {
-	modules: Modules;
+	modules: Record<string, Module$1>;
 	canvas: HTMLCanvasElement | null;
 }
-interface Module$1 {
-}
+declare type Module$1 = object;
 export interface Modules {
 	[key: string]: Module$1 | undefined;
 	core: ICore;
@@ -154,13 +153,17 @@ declare enum Event$1 {
 	INIT = "antetype.init",
 	CLOSE = "antetype.close",
 	DRAW = "antetype.draw",
-	CALC = "antetype.calc"
+	CALC = "antetype.calc",
+	RECALC_FINISHED = "antetype.recalc.finished",
+	MODULES = "antetype.modules"
 }
+export declare type RecalculateFinishedEvent = object;
 export interface DrawEvent {
 	element: IBaseDef;
 }
 export interface CalcEvent {
 	element: IBaseDef | null;
+	sessionId: symbol | null;
 }
 export interface ISettings {
 	[key: string | number | symbol]: unknown;
@@ -169,8 +172,7 @@ export interface InitEvent {
 	base: Layout;
 	settings: ISettings;
 }
-interface CloseEvent$1 {
-}
+declare type CloseEvent$1 = object;
 export declare type XValue = number;
 export declare type YValue = XValue;
 export interface IStart {
@@ -191,6 +193,7 @@ export interface IHierarchy {
 }
 export interface IBaseDef<T = never> {
 	[key: symbol | string]: unknown;
+	id?: string;
 	hierarchy?: IHierarchy;
 	start: IStart;
 	size: ISize;
@@ -234,6 +237,7 @@ export interface IFont {
 export interface ICore extends Module$1 {
 	meta: {
 		document: IDocumentDef;
+		generateId: () => string;
 	};
 	clone: {
 		definitions: (data: IBaseDef) => Promise<IBaseDef>;
@@ -251,11 +255,11 @@ export interface ICore extends Module$1 {
 		calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
 	};
 	view: {
-		calc: (element: IBaseDef, parent?: IParentDef, position?: number) => Promise<IBaseDef | null>;
+		calc: (element: IBaseDef, parent?: IParentDef, position?: number, currentSession?: symbol | null) => Promise<IBaseDef | null>;
 		draw: (element: IBaseDef) => void;
 		redraw: (layout?: Layout) => void;
-		recalculate: (parent?: IParentDef, layout?: Layout) => Promise<Layout>;
-		redrawDebounce: (layout: Layout) => void;
+		recalculate: (parent?: IParentDef, layout?: Layout, currentSession?: symbol | null) => Promise<Layout>;
+		redrawDebounce: (layout?: Layout) => void;
 	};
 	policies: {
 		isLayer: (layer: Record<symbol, unknown>) => boolean;

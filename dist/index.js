@@ -1,1 +1,79 @@
-var i=(e=>(e.STRUCTURE="antetype.structure",e.MIDDLE="antetype.structure.middle",e.BAR_BOTTOM="antetype.structure.bar.bottom",e.CENTER="antetype.structure.center",e.COLUMN_LEFT="antetype.structure.column.left",e.COLUMN_RIGHT="antetype.structure.column.right",e.BAR_TOP="antetype.structure.bar.top",e.MODULES="antetype.modules",e.ACTIONS="antetype.structure.column.left.actions",e.PROPERTIES="antetype.structure.column.left.properties",e.SHOW_PROPERTIES="antetype.structure.column.left.properties.show",e))(i||{});var c=(r=>(r.INIT="antetype.init",r.CLOSE="antetype.close",r.DRAW="antetype.draw",r.CALC="antetype.calc",r))(c||{}),s=class{#t;#r=null;#e=null;static inject={minstrel:"boardmeister/minstrel",herald:"boardmeister/herald"};inject(t){this.#t=t}async#n(t,n){if(!this.#e){let o=this.#t.minstrel.getResourceUrl(this,"core.js");this.#r=(await import(o)).default,this.#e=this.#r({canvas:n,modules:t,injected:this.#t})}return this.#e}async register(t){let{modules:n,canvas:o}=t.detail;n.core=await this.#n(n,o)}async init(t){if(!this.#e)throw new Error("Instance not loaded, trigger registration event first");let{base:n,settings:o}=t.detail;for(let a in o)this.#e.setting.set(a,o[a]);let r=this.#e.meta.document;r.base=n;let l=[];return(this.#e.setting.get("fonts")??[]).forEach(a=>{l.push(this.#e.font.load(a))}),await Promise.all(l),r.layout=await this.#e.view.recalculate(r,r.base),await this.#e.view.redraw(r.layout),r}async cloneDefinitions(t){if(!this.#e)throw new Error("Instance not loaded, trigger registration event first");t.detail.element!==null&&(t.detail.element=await this.#e.clone.definitions(t.detail.element))}static subscriptions={[i.MODULES]:"register","antetype.init":"init","antetype.calc":[{method:"cloneDefinitions",priority:-255}]}},u=s,f=u;export{s as AntetypeCore,c as Event,f as default};
+// src/index.tsx
+var Event = /* @__PURE__ */ ((Event2) => {
+  Event2["INIT"] = "antetype.init";
+  Event2["CLOSE"] = "antetype.close";
+  Event2["DRAW"] = "antetype.draw";
+  Event2["CALC"] = "antetype.calc";
+  Event2["RECALC_FINISHED"] = "antetype.recalc.finished";
+  Event2["MODULES"] = "antetype.modules";
+  return Event2;
+})(Event || {});
+var AntetypeCore = class {
+  #injected;
+  #moduleCore = null;
+  #core = null;
+  static inject = {
+    minstrel: "boardmeister/minstrel",
+    herald: "boardmeister/herald"
+  };
+  inject(injections) {
+    this.#injected = injections;
+  }
+  async #getCore(modules, canvas) {
+    if (!this.#core) {
+      const module = this.#injected.minstrel.getResourceUrl(this, "core.js");
+      this.#moduleCore = (await import(module)).default;
+      this.#core = this.#moduleCore({ canvas, modules, injected: this.#injected });
+    }
+    return this.#core;
+  }
+  async register(event) {
+    const { modules, canvas } = event.detail;
+    modules.core = await this.#getCore(modules, canvas);
+  }
+  async init(event) {
+    if (!this.#core) {
+      throw new Error("Instance not loaded, trigger registration event first");
+    }
+    const { base, settings } = event.detail;
+    for (const key in settings) {
+      this.#core.setting.set(key, settings[key]);
+    }
+    const doc = this.#core.meta.document;
+    doc.base = base;
+    const promises = [];
+    (this.#core.setting.get("fonts") ?? []).forEach((font) => {
+      promises.push(this.#core.font.load(font));
+    });
+    await Promise.all(promises);
+    doc.layout = await this.#core.view.recalculate(doc, doc.base);
+    await this.#core.view.redraw(doc.layout);
+    return doc;
+  }
+  async cloneDefinitions(event) {
+    if (!this.#core) {
+      throw new Error("Instance not loaded, trigger registration event first");
+    }
+    if (event.detail.element === null) {
+      return;
+    }
+    event.detail.element = await this.#core.clone.definitions(event.detail.element);
+  }
+  static subscriptions = {
+    ["antetype.modules" /* MODULES */]: "register",
+    ["antetype.init" /* INIT */]: "init",
+    ["antetype.calc" /* CALC */]: [
+      {
+        method: "cloneDefinitions",
+        priority: -255
+      }
+    ]
+  };
+};
+var EnAntetypeCore = AntetypeCore;
+var src_default = EnAntetypeCore;
+export {
+  AntetypeCore,
+  Event,
+  src_default as default
+};

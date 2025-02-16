@@ -1,4 +1,3 @@
-import { Event as AntetypeEvent } from "@boardmeister/antetype"
 import type { IInjectable } from "@boardmeister/marshal"
 import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald, ISubscriber, Subscriptions } from "@boardmeister/herald"
@@ -7,12 +6,11 @@ import type { UnknownRecord } from "@src/clone";
 
 
 export interface ModulesEvent {
-  modules: Modules;
+  modules: Record<string, Module>;
   canvas: HTMLCanvasElement|null;
 }
 
-export interface Module {
-}
+export declare type Module = object;
 
 export interface Modules {
   [key: string]: Module|undefined;
@@ -24,7 +22,11 @@ export enum Event {
   CLOSE = 'antetype.close',
   DRAW = 'antetype.draw',
   CALC = 'antetype.calc',
+  RECALC_FINISHED = 'antetype.recalc.finished',
+  MODULES = "antetype.modules",
 }
+
+export declare type RecalculateFinishedEvent = object;
 
 export interface DrawEvent {
   element: IBaseDef;
@@ -32,6 +34,7 @@ export interface DrawEvent {
 
 export interface CalcEvent {
   element: IBaseDef|null;
+  sessionId: symbol|null;
 }
 
 export interface ISettings {
@@ -43,8 +46,7 @@ export interface InitEvent {
   settings: ISettings;
 }
 
-export interface CloseEvent {
-}
+export declare type CloseEvent  = object;
 
 export declare type XValue = number;
 export declare type YValue = XValue;
@@ -71,6 +73,7 @@ export interface IHierarchy {
 
 export interface IBaseDef<T = never> {
   [key: symbol|string]: unknown;
+  id?: string;
   hierarchy?: IHierarchy;
   start: IStart;
   size: ISize;
@@ -114,6 +117,7 @@ export interface IFont {
 export interface ICore extends Module {
   meta: {
     document: IDocumentDef;
+    generateId: () => string;
   },
   clone: {
     definitions: (data: IBaseDef) => Promise<IBaseDef>;
@@ -131,11 +135,16 @@ export interface ICore extends Module {
     calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
   };
   view: {
-    calc: (element: IBaseDef, parent?: IParentDef, position?: number) => Promise<IBaseDef|null>;
+    calc: (
+      element: IBaseDef,
+      parent?: IParentDef,
+      position?: number,
+      currentSession?: symbol|null,
+    ) => Promise<IBaseDef|null>;
     draw: (element: IBaseDef) => void;
     redraw: (layout?: Layout) => void;
-    recalculate: (parent?: IParentDef, layout?: Layout) => Promise<Layout>;
-    redrawDebounce: (layout: Layout) => void;
+    recalculate: (parent?: IParentDef, layout?: Layout, currentSession?: symbol|null) => Promise<Layout>;
+    redrawDebounce: (layout?: Layout) => void;
   };
   policies: {
     isLayer: (layer: Record<symbol, unknown>) => boolean;
@@ -166,11 +175,11 @@ export class AntetypeCore {
     this.#injected = injections;
   }
 
-  async #getCore(modules: Modules, canvas: HTMLCanvasElement|null): Promise<ICore> {
+  async #getCore(modules: Record<string, Module>, canvas: HTMLCanvasElement|null): Promise<ICore> {
     if (!this.#core) {
       const module = this.#injected!.minstrel.getResourceUrl(this, 'core.js');
       this.#moduleCore = (await import(module)).default as typeof Core;
-      this.#core = this.#moduleCore({ canvas, modules, injected: this.#injected! });
+      this.#core = this.#moduleCore({ canvas, modules: modules as Modules, injected: this.#injected! });
     }
 
     return this.#core;
@@ -222,7 +231,7 @@ export class AntetypeCore {
   }
 
   static subscriptions: Subscriptions = {
-    [AntetypeEvent.MODULES]: 'register',
+    [Event.MODULES]: 'register',
     [Event.INIT]: 'init',
     [Event.CALC]: [
       {
