@@ -155,7 +155,8 @@ declare enum Event$1 {
 	DRAW = "antetype.draw",
 	CALC = "antetype.calc",
 	RECALC_FINISHED = "antetype.recalc.finished",
-	MODULES = "antetype.modules"
+	MODULES = "antetype.modules",
+	SETTINGS = "antetype.settings.definition"
 }
 export declare type RecalculateFinishedEvent = object;
 export interface DrawEvent {
@@ -165,9 +166,56 @@ export interface CalcEvent {
 	element: IBaseDef | null;
 	sessionId: symbol | null;
 }
+export interface ISettingFont {
+	name: string;
+	url: string;
+}
 export interface ISettings {
 	[key: string | number | symbol]: unknown;
+	core?: {
+		fonts?: ISettingFont[];
+	};
 }
+export interface ISettingsDefinitionFieldGeneric {
+	label: string;
+	type: string;
+}
+export type SettingsDefinitionField = ISettingsDefinitionFieldInput | ISettingsDefinitionFieldContainer | ISettingsDefinitionFieldGeneric;
+export interface ISettingsDefinitionFieldContainer extends ISettingsDefinitionFieldGeneric {
+	type: "container";
+	fields: SettingsDefinitionField[][];
+	collapsable?: boolean;
+}
+export type ISettingsInputValue = string | number | string[] | number[] | Record<string, any> | Record<string, any>[] | undefined;
+export interface ISettingsDefinitionFieldInput extends ISettingsDefinitionFieldGeneric {
+	name: string;
+	value: ISettingsInputValue;
+}
+export interface ISettingsDefinitionFieldList extends ISettingsDefinitionFieldGeneric {
+	type: "list";
+	name: string;
+	fields: SettingsDefinitionField[][][];
+	template: SettingsDefinitionField[][];
+	entry: Record<string, any>;
+}
+export interface ISettingsDefinitionTab {
+	label: string;
+	icon?: string;
+	fields: SettingsDefinitionField[][];
+}
+export interface ISettingsDefinition {
+	details: {
+		label: string;
+		icon?: string;
+	};
+	name: string;
+	tabs: ISettingsDefinitionTab[];
+}
+export interface ISettingEvent {
+	settings: ISettingsDefinition[];
+	additional: Record<string, any>;
+}
+export type SettingsEvent = CustomEvent<ISettingEvent>;
 export interface InitEvent {
 	base: Layout;
 	settings: ISettings;
@@ -220,6 +268,7 @@ export interface IDocumentDef extends IParentDef {
 		w: 0;
 		h: 0;
 	};
+	settings: ISettings;
 }
 export interface IInjected extends Record<string, object> {
 	minstrel: Minstrel;
@@ -272,6 +321,8 @@ export interface ICore extends Module$1 {
 		set: (name: string, value: unknown) => void;
 		get: <T = unknown>(name: string) => T | null;
 		has: (name: string) => boolean;
+		retrieveSettingsDefinition: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
+		setSettingsDefinition: (e: SettingsEvent) => void;
 	};
 }
 export type Layout = (IBaseDef | IParentDef)[];
@@ -282,6 +333,7 @@ export declare class AntetypeCore {
 	register(event: CustomEvent<ModulesEvent>): Promise<void>;
 	init(event: CustomEvent<InitEvent>): Promise<IDocumentDef>;
 	cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void>;
+	setSettings(e: SettingsEvent): void;
 	static subscriptions: Subscriptions;
 }
 declare const EnAntetypeCore: IInjectable<IInjected> & ISubscriber;

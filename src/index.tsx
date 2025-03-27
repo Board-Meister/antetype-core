@@ -1,7 +1,7 @@
 import type { IInjectable } from "@boardmeister/marshal"
 import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald, ISubscriber, Subscriptions } from "@boardmeister/herald"
-import type Core from "@src/core";
+import Core, { IInternalCore } from "@src/core";
 import type { UnknownRecord } from "@src/clone";
 
 
@@ -24,6 +24,7 @@ export enum Event {
   CALC = 'antetype.calc',
   RECALC_FINISHED = 'antetype.recalc.finished',
   MODULES = "antetype.modules",
+  SETTINGS = "antetype.settings.definition",
 }
 
 export declare type RecalculateFinishedEvent = object;
@@ -37,16 +38,75 @@ export interface CalcEvent {
   sessionId: symbol|null;
 }
 
+export interface ISettingFont {
+  name: string;
+  url: string;
+}
+
 export interface ISettings {
   [key: string|number|symbol]: unknown;
+  core?: {
+    fonts?: ISettingFont[];
+  };
 }
+
+export interface ISettingsDefinitionFieldGeneric {
+  label: string;
+  type: string;
+}
+
+export type SettingsDefinitionField =
+  ISettingsDefinitionFieldInput|ISettingsDefinitionFieldContainer|ISettingsDefinitionFieldGeneric;
+
+export interface ISettingsDefinitionFieldContainer extends ISettingsDefinitionFieldGeneric {
+  type: 'container';
+  fields: SettingsDefinitionField[][];
+  collapsable?: boolean;
+}
+
+export type ISettingsInputValue = string|number|string[]|number[]|Record<string, any>|Record<string, any>[]|undefined;
+
+export interface ISettingsDefinitionFieldInput extends ISettingsDefinitionFieldGeneric {
+  name: string;
+  value: ISettingsInputValue;
+}
+
+export interface ISettingsDefinitionFieldList extends ISettingsDefinitionFieldGeneric {
+  type: 'list';
+  name: string;
+  fields: SettingsDefinitionField[][][];
+  template: SettingsDefinitionField[][];
+  entry: Record<string, any>;
+}
+
+export interface ISettingsDefinitionTab {
+  label: string;
+  icon?: string;
+  fields: SettingsDefinitionField[][];
+}
+
+export interface ISettingsDefinition {
+  details: {
+    label: string;
+    icon?: string;
+  }
+  name: string;
+  tabs: ISettingsDefinitionTab[];
+}
+
+export interface ISettingEvent {
+  settings: ISettingsDefinition[];
+  additional: Record<string, any>;
+}
+
+export type SettingsEvent = CustomEvent<ISettingEvent>;
 
 export interface InitEvent {
   base: Layout;
   settings: ISettings;
 }
 
-export declare type CloseEvent  = object;
+export declare type CloseEvent = object;
 
 export declare type XValue = number;
 export declare type YValue = XValue;
@@ -96,6 +156,7 @@ export interface IDocumentDef extends IParentDef {
   base: Layout,
   start: { x: 0, y: 0 },
   size: { w: 0, h: 0 },
+  settings: ISettings
 }
 
 export interface IInjected extends Record<string, object> {
@@ -157,6 +218,8 @@ export interface ICore extends Module {
     set: (name: string, value: unknown) => void;
     get: <T = unknown>(name: string) => T | null;
     has: (name: string)=> boolean;
+    retrieveSettingsDefinition: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
+    setSettingsDefinition: (e: SettingsEvent) => void;
   }
 }
 
@@ -166,6 +229,7 @@ export class AntetypeCore {
   #injected?: IInjected;
   #moduleCore: (typeof Core)|null = null;
   #core: ICore|null = null;
+  #internal: IInternalCore|null = null;
 
   static inject: Record<string, string> = {
     minstrel: 'boardmeister/minstrel',
@@ -179,7 +243,9 @@ export class AntetypeCore {
     if (!this.#core) {
       const module = this.#injected!.minstrel.getResourceUrl(this, 'core.js');
       this.#moduleCore = (await import(module)).default as typeof Core;
-      this.#core = this.#moduleCore({ canvas, modules: modules as Modules, injected: this.#injected! });
+      const instance = this.#moduleCore({ canvas, modules: modules as Modules, injected: this.#injected! });
+      this.#core = instance.module;
+      this.#internal = instance.internal;
     }
 
     return this.#core;
@@ -191,31 +257,13 @@ export class AntetypeCore {
     modules.core = await this.#getCore(modules, canvas);
   }
 
-  async init(event: CustomEvent<InitEvent>): Promise<IDocumentDef> {
-    if (!this.#core) {
+  init(event: CustomEvent<InitEvent>): Promise<IDocumentDef> {
+    if (!this.#core || !this.#internal) {
       throw new Error('Instance not loaded, trigger registration event first');
     }
 
     const { base, settings } = event.detail;
-    for (const key in settings) {
-      this.#core.setting.set(key, settings[key]);
-    }
-
-    const doc = this.#core.meta.document;
-    doc.base = base;
-
-    // @TODO move this somewhere else?
-    const promises: Promise<void>[] = [];
-    (this.#core.setting.get<IFont[]>('fonts') ?? []).forEach((font: IFont) => {
-      promises.push(this.#core!.font.load(font));
-    });
-    await Promise.all(promises);
-
-
-    doc.layout = await this.#core.view.recalculate(doc, doc.base);
-    this.#core.view.redraw(doc.layout);
-
-    return doc;
+    return this.#internal.init(base, settings);
   }
 
   async cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void> {
@@ -230,9 +278,14 @@ export class AntetypeCore {
     event.detail.element = await this.#core.clone.definitions(event.detail.element);
   }
 
+  setSettings(e: SettingsEvent): void {
+    this.#core!.setting.setSettingsDefinition(e);
+  }
+
   static subscriptions: Subscriptions = {
     [Event.MODULES]: 'register',
     [Event.INIT]: 'init',
+    [Event.SETTINGS]: 'setSettings',
     [Event.CALC]: [
       {
         method: 'cloneDefinitions',

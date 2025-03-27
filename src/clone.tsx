@@ -1,7 +1,7 @@
 import { IBaseDef, IParameters } from "@src/index";
 
 export interface IClone {
-  cloneDefinitions: (data: IBaseDef) => Promise<IBaseDef>;
+  cloneDefinition: (data: IBaseDef) => Promise<IBaseDef>;
   isClone: (layer: Record<symbol, unknown>) => boolean;
   getOriginal: <T extends UnknownRecord = UnknownRecord>(object: T) => T;
   getClone: <T extends UnknownRecord = UnknownRecord>(object: T) => T;
@@ -50,7 +50,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
       throw new Error('limit reached');
     }
 
-    await Promise.all(Object.keys(object).map(async key => {
+    for (const key of Object.keys(object)) {
       let result = await resolve(object[key], object);
 
       if (isObject(result)) {
@@ -60,7 +60,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
       }
 
       clone[key] = result;
-    }));
+    };
 
     return clone;
   }
@@ -76,7 +76,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
       throw new Error('limit reached');
     }
 
-    await Promise.all(object.map(async value => {
+    for (const value of object) {
       let result = await resolve(value, object);
 
       if (isObject(result)) {
@@ -86,7 +86,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
       }
 
       clone.push(result);
-    }));
+    };
 
     return clone;
   }
@@ -98,7 +98,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
     ;
   }
 
-  const cloneDefinitions = async (data: IBaseDef): Promise<IBaseDef> => {
+  const cloneDefinition = async (data: IBaseDef): Promise<IBaseDef> => {
     return await iterateResolveAndCloneObject(data, new WeakMap()) as IBaseDef;
   }
 
@@ -106,7 +106,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
 
   return {
     isClone,
-    cloneDefinitions,
+    cloneDefinition,
     getClone,
     getOriginal,
   };

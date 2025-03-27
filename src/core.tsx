@@ -11,13 +11,23 @@ import {
   CalcEvent,
   Layout,
   IDocumentDef,
-  RecalculateFinishedEvent
+  RecalculateFinishedEvent,
+  ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings
 } from "@src/index";
 import Clone from "@src/clone";
 
+export interface IInternalCore {
+  init: (base: Layout, settings: ISettings) => Promise<IDocumentDef>;
+}
+
+export interface ICoreReturn {
+  module: ICore;
+  internal: IInternalCore;
+}
+
 export default function Core(
   parameters: IParameters
-): ICore {
+): ICoreReturn {
   const {
     canvas,
     injected: { herald },
@@ -27,9 +37,8 @@ export default function Core(
   }
   const sessionQueue: symbol[] = [];
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
-  const settings: Record<string, any> = {};
   const layerPolicy = Symbol('layer');
-  const { cloneDefinitions, isClone, getOriginal, getClone } = Clone(parameters);
+  const { cloneDefinition, isClone, getOriginal, getClone } = Clone(parameters);
 
   const __DOCUMENT: IDocumentDef = {
     type: 'document',
@@ -37,7 +46,13 @@ export default function Core(
     layout: [],
     start: { x: 0, y: 0 },
     size: { w: 0, h: 0 },
+    settings: {
+      core: {
+        fonts: [],
+      },
+    },
   };
+
   console.log(__DOCUMENT)
 
   const debounce = (func: (...args: any[]) => void|Promise<void>, timeout = 100): () => void => {
@@ -303,13 +318,126 @@ export default function Core(
     document.fonts.add(await myFont.load());
   }
 
-  return {
+  const retrieveSettingsDefinition = async function (
+    additional: Record<string, any> = {},
+  ): Promise<ISettingsDefinition[]> {
+    const event: SettingsEvent = new CustomEvent(Event.SETTINGS, {
+      detail: {
+        settings: [],
+        additional,
+      },
+    });
+
+    await herald.dispatch(event);
+
+    return event.detail.settings;
+  }
+
+  const setSetting = (path: string[], value: unknown, settings: Record<string, unknown>): void => {
+    if (path.length <= 1) {
+      settings[path[0]] = value;
+      return;
+    }
+
+    settings[path[0]] ??= {};
+    if (typeof settings[path[0]] !== 'object' || settings[path[0]] === null) {
+      console.warn('Cannot set setting, due to one of destination not being an object', path, settings, value);
+      return;
+    }
+
+    setSetting(path.slice(1), value, settings[path[0]] as Record<string, unknown>);
+  }
+
+  const getSetting = (path: string[], settings: Record<string, unknown>): unknown => {
+    if (path.length <= 1) {
+      return settings[path[0]];
+    }
+
+    if (!settings[path[0]]) {
+      return undefined;
+    }
+
+    return getSetting(path.slice(1), settings[path[0]] as Record<string, unknown>);
+  }
+
+  const setSettingsDefinition = (e: SettingsEvent): void => {
+    const settings = e.detail.settings;
+    const generateFonts = (): SettingsDefinitionField[][][] => {
+      const definitions: SettingsDefinitionField[][][] = [];
+      for (const font of __DOCUMENT.settings?.core?.fonts ?? []) {
+        definitions.push([[
+          {
+            type: 'asset',
+            name: 'url',
+            label: 'File',
+            value: font.url,
+          },
+          {
+            type: 'title',
+            name: 'name',
+            label: 'Name',
+            value: font.name,
+          }
+        ]])
+      }
+
+      return definitions;
+    }
+
+    settings.push({
+      details: {
+        label: 'Core',
+      },
+      name: 'core',
+      tabs: [
+        {
+          label: 'Font',
+          fields: [
+            [{
+              label: 'Fonts',
+              type: 'container',
+              fields: [
+                [{
+                  name: 'fonts',
+                  type: 'list',
+                  label: 'Fonts List',
+                  template: [
+                    [
+                      {
+                        type: 'asset',
+                        name: 'url',
+                        label: 'File',
+                        value: '',
+                      },
+                      {
+                        type: 'title',
+                        name: 'name',
+                        label: 'Name',
+                        value: '',
+                      }
+                    ]
+                  ],
+                  entry: {
+                    url: '',
+                    name: '',
+                  },
+                  fields: generateFonts(),
+                } as ISettingsDefinitionFieldList]
+              ]
+            }]
+          ]
+        }
+      ]
+    })
+  }
+
+  const getModule = (): ICore => ({
     meta: {
       document: __DOCUMENT,
       generateId,
     },
     clone: {
-      definitions: cloneDefinitions,
+      definitions: cloneDefinition,
       getOriginal,
       getClone,
     },
@@ -338,9 +466,80 @@ export default function Core(
       load: loadFont
     },
     setting: {
-      set(name: string, value: unknown): void { settings[name] = value; },
-      get<T = unknown>(name: string): T | null { return (settings[name] as T) ?? null; },
-      has: (name: string): boolean => !!(settings[name] ?? false)
+      set(name: string, value: unknown): void {
+        const path = name.split('.');
+        if (!path.slice(-1)) {
+          path.pop();
+        }
+        setSetting(path, value, __DOCUMENT.settings)
+      },
+      get<T = unknown>(name: string): T | null {
+        const path = name.split('.');
+        if (!path.slice(-1)) {
+          path.pop();
+        }
+        return (getSetting(path, __DOCUMENT.settings) as T) ?? null;
+      },
+      has: function (name: string): boolean {
+        return !!(this.get(name) ?? false)
+      },
+      retrieveSettingsDefinition,
+      setSettingsDefinition,
     }
-  };
+  });
+  /** INSTANTIATE PUBLIC METHODS */
+  const module = getModule();
+
+  const isObject = (item: unknown): boolean => !!(item && typeof item === 'object' && !Array.isArray(item));
+
+  const mergeDeep = (
+    target: Record<string, unknown>,
+    ...sources: Record<string, unknown>[]
+  ): Record<string, unknown> => {
+    if (!sources.length) return target;
+    const source = sources.shift();
+
+    if (isObject(target) && isObject(source)) {
+      for (const key in source) {
+        const sEl = source[key]
+        if (isObject(sEl)) {
+          const tEl = target[key];
+          if (!tEl) Object.assign(target, { [key]: {} });
+          mergeDeep(target[key] as Record<string, unknown>, sEl as Record<string, unknown>);
+        } else {
+          Object.assign(target, { [key]: sEl });
+        }
+      }
+    }
+
+    return mergeDeep(target, ...sources);
+  }
+
+  const init = async (base: Layout, settings: ISettings): Promise<IDocumentDef> => {
+    for (const key in settings) {
+      module.setting.set(key, settings[key]);
+    }
+
+    const doc = __DOCUMENT;
+    doc.settings = mergeDeep({}, __DOCUMENT.settings, settings) as ISettings;
+    doc.base = base;
+
+    const promises: Promise<void>[] = [];
+    (module.setting.get<IFont[]>('core.fonts') ?? []).forEach((font: IFont) => {
+      promises.push(module.font.load(font));
+    });
+    await Promise.all(promises);
+
+    doc.layout = await module.view.recalculate(doc, doc.base);
+    module.view.redraw(doc.layout);
+
+    return doc;
+  }
+
+  return {
+    module,
+    internal: {
+      init,
+    }
+  }
 }
