@@ -313,9 +313,13 @@ export default function Core(
   }
 
   const loadFont = async (font: IFont): Promise<void> => {
-    const myFont = new FontFace(font.name, 'url(' + font.url + ')');
+    try {
+      const myFont = new FontFace(font.name, 'url(' + font.url + ')');
 
-    document.fonts.add(await myFont.load());
+      document.fonts.add(await myFont.load());
+    } catch (error) {
+      console.error('Font couldn\'t be loaded:', font.name + ',', font.url, error)
+    }
   }
 
   const retrieveSettingsDefinition = async function (
