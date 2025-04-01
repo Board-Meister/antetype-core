@@ -1,7 +1,7 @@
 import type { IInjectable } from "@boardmeister/marshal"
 import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald, ISubscriber, Subscriptions } from "@boardmeister/herald"
-import Core, { IInternalCore } from "@src/core";
+import type Core from "@src/core";
 import type { UnknownRecord } from "@src/clone";
 
 
@@ -167,7 +167,7 @@ export interface IInjected extends Record<string, object> {
 export interface IParameters {
   canvas: HTMLCanvasElement|null,
   modules: Modules,
-  injected: IInjected
+  herald: Herald,
 }
 
 export interface IFont {
@@ -228,8 +228,6 @@ export type Layout = (IBaseDef|IParentDef)[];
 export class AntetypeCore {
   #injected?: IInjected;
   #moduleCore: (typeof Core)|null = null;
-  #core: ICore|null = null;
-  #internal: IInternalCore|null = null;
 
   static inject: Record<string, string> = {
     minstrel: 'boardmeister/minstrel',
@@ -240,15 +238,9 @@ export class AntetypeCore {
   }
 
   async #getCore(modules: Record<string, Module>, canvas: HTMLCanvasElement|null): Promise<ICore> {
-    if (!this.#core) {
-      const module = this.#injected!.minstrel.getResourceUrl(this, 'core.js');
-      this.#moduleCore = (await import(module)).default as typeof Core;
-      const instance = this.#moduleCore({ canvas, modules: modules as Modules, injected: this.#injected! });
-      this.#core = instance.module;
-      this.#internal = instance.internal;
-    }
-
-    return this.#core;
+    const module = this.#injected!.minstrel.getResourceUrl(this, 'core.js');
+    this.#moduleCore = (await import(module)).default as typeof Core;
+    return this.#moduleCore({ canvas, modules: modules as Modules, herald: this.#injected!.herald });
   }
 
   async register(event: CustomEvent<ModulesEvent>): Promise<void> {
@@ -257,41 +249,41 @@ export class AntetypeCore {
     modules.core = await this.#getCore(modules, canvas);
   }
 
-  init(event: CustomEvent<InitEvent>): Promise<IDocumentDef> {
-    if (!this.#core || !this.#internal) {
-      throw new Error('Instance not loaded, trigger registration event first');
-    }
+  // init(event: CustomEvent<InitEvent>): Promise<IDocumentDef> {
+  //   if (!this.#core || !this.#internal) {
+  //     throw new Error('Instance not loaded, trigger registration event first');
+  //   }
 
-    const { base, settings } = event.detail;
-    return this.#internal.init(base, settings);
-  }
+  //   const { base, settings } = event.detail;
+  //   return this.#internal.init(base, settings);
+  // }
 
-  async cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void> {
-    if (!this.#core) {
-      throw new Error('Instance not loaded, trigger registration event first');
-    }
+  // async cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void> {
+  //   if (!this.#core) {
+  //     throw new Error('Instance not loaded, trigger registration event first');
+  //   }
 
-    if (event.detail.element === null) {
-      return;
-    }
+  //   if (event.detail.element === null) {
+  //     return;
+  //   }
 
-    event.detail.element = await this.#core.clone.definitions(event.detail.element);
-  }
+  //   event.detail.element = await this.#core.clone.definitions(event.detail.element);
+  // }
 
-  setSettings(e: SettingsEvent): void {
-    this.#core!.setting.setSettingsDefinition(e);
-  }
+  // setSettings(e: SettingsEvent): void {
+  //   this.#core!.setting.setSettingsDefinition(e);
+  // }
 
   static subscriptions: Subscriptions = {
     [Event.MODULES]: 'register',
-    [Event.INIT]: 'init',
-    [Event.SETTINGS]: 'setSettings',
-    [Event.CALC]: [
-      {
-        method: 'cloneDefinitions',
-        priority: -255,
-      },
-    ],
+    // [Event.INIT]: 'init',
+    // [Event.SETTINGS]: 'setSettings',
+    // [Event.CALC]: [
+    //   {
+    //     method: 'cloneDefinitions',
+    //     priority: -255,
+    //   },
+    // ],
   }
 }
 

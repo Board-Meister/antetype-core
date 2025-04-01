@@ -12,7 +12,8 @@ import {
   Layout,
   IDocumentDef,
   RecalculateFinishedEvent,
-  ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings
+  ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings,
+  InitEvent
 } from "@src/index";
 import Clone from "@src/clone";
 
@@ -20,17 +21,12 @@ export interface IInternalCore {
   init: (base: Layout, settings: ISettings) => Promise<IDocumentDef>;
 }
 
-export interface ICoreReturn {
-  module: ICore;
-  internal: IInternalCore;
-}
-
 export default function Core(
   parameters: IParameters
-): ICoreReturn {
+): ICore {
   const {
     canvas,
-    injected: { herald },
+    herald,
   } = parameters;
   if (!canvas) {
     throw new Error('[Antetype Workspace] Provided canvas is empty')
@@ -540,10 +536,44 @@ export default function Core(
     return doc;
   }
 
-  return {
-    module,
-    internal: {
-      init,
-    }
-  }
+
+  const unregister = herald.batch([
+    {
+      event: Event.CLOSE,
+      subscription: () => {
+        unregister();
+      }
+    },
+    {
+      event: Event.INIT,
+      subscription: (event: CustomEvent<InitEvent>): Promise<IDocumentDef> => {
+        const { base, settings } = event.detail;
+
+        return init(base, settings);
+      }
+    },
+    {
+      event: Event.SETTINGS,
+      subscription: (e: SettingsEvent): void => {
+        module.setting.setSettingsDefinition(e);
+      }
+    },
+    {
+      event: Event.CALC,
+      subscription: [
+        {
+          priority: -255,
+          method: async (event: CustomEvent<CalcEvent>): Promise<void> => {
+            if (event.detail.element === null) {
+              return;
+            }
+
+            event.detail.element = await module.clone.definitions(event.detail.element);
+          }
+        }
+      ]
+    },
+  ]);
+
+  return module;
 }

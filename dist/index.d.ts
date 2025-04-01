@@ -79,7 +79,7 @@ declare class _ISubscriber {
 }
 type ISubscriber = typeof _ISubscriber;
 type AmbiguousSubscription = string | Subscription | Subscription[] | EventHandler;
-type EventHandler = (event: CustomEvent) => Promise<void> | void;
+type EventHandler = (event: CustomEvent) => Promise<any> | any;
 type Subscriptions = Record<string, AmbiguousSubscription>;
 interface Subscription {
 	method: string | EventHandler;
@@ -277,7 +277,7 @@ export interface IInjected extends Record<string, object> {
 export interface IParameters {
 	canvas: HTMLCanvasElement | null;
 	modules: Modules;
-	injected: IInjected;
+	herald: Herald;
 }
 export interface IFont {
 	url: string;
@@ -331,9 +331,6 @@ export declare class AntetypeCore {
 	static inject: Record<string, string>;
 	inject(injections: IInjected): void;
 	register(event: CustomEvent<ModulesEvent>): Promise<void>;
-	init(event: CustomEvent<InitEvent>): Promise<IDocumentDef>;
-	cloneDefinitions(event: CustomEvent<CalcEvent>): Promise<void>;
-	setSettings(e: SettingsEvent): void;
 	static subscriptions: Subscriptions;
 }
 declare const EnAntetypeCore: IInjectable<IInjected> & ISubscriber;
