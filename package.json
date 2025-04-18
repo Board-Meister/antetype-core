@@ -9,7 +9,7 @@
     "/dist"
   ],
   "scripts": {
-    "typescript": "./node_modules/.bin/dts-bundle-generator --no-check --export-referenced-types false --project tsconfig.json -o dist/index.d.ts src/index.tsx",
+    "typescript": "./node_modules/.bin/dts-bundle-generator --no-check --export-referenced-types false --project tsconfig.json -o dist/index.d.ts src/index.ts",
     "link": "npm link @boardmeister/antetype @boardmeister/minstrel @boardmeister/herald @boardmeister/marshal",
     "build": "node esbuild.config.mjs && npm run typescript"
   },

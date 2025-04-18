@@ -14,7 +14,7 @@ import {
   RecalculateFinishedEvent,
   ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings,
   InitEvent
-} from "@src/index";
+} from "@src/type.d";
 import Clone from "@src/clone";
 
 export interface IInternalCore {

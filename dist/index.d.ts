@@ -98,9 +98,9 @@ interface IEventRegistration {
 	sort?: boolean;
 	symbol?: symbol | null;
 }
-interface IInjection extends Record<string, object> {
+interface IInjection extends Record<string, object | undefined> {
 	subscribers: ISubscriberObject[];
-	marshal: Marshal;
+	marshal?: Marshal;
 }
 declare class Herald {
 	#private;
@@ -112,6 +112,7 @@ declare class Herald {
 	register(event: string, subscription: AmbiguousSubscription, constraint?: string | Module | null, sort?: boolean, symbol?: symbol | null): () => void;
 	unregister(event: string, symbol: symbol): void;
 }
+declare type UnknownRecord = Record<symbol | string, unknown>;
 type PathProps = JSX.IntrinsicAttributes & RouteProps;
 interface INavItem {
 	node?: React$1.ReactNode;
@@ -139,7 +140,6 @@ declare class Minstrel {
 	component<T>(module: Module, suffix: string, scope?: Record<string, any>): React$1.FC<T>;
 	asset(module: Module, suffix: string): string;
 }
-declare type UnknownRecord = Record<symbol | string, unknown>;
 export interface ModulesEvent {
 	modules: Record<string, Module$1>;
 	canvas: HTMLCanvasElement | null;
@@ -149,15 +149,16 @@ export interface Modules {
 	[key: string]: Module$1 | undefined;
 	core: ICore;
 }
-declare enum Event$1 {
-	INIT = "antetype.init",
-	CLOSE = "antetype.close",
-	DRAW = "antetype.draw",
-	CALC = "antetype.calc",
-	RECALC_FINISHED = "antetype.recalc.finished",
-	MODULES = "antetype.modules",
-	SETTINGS = "antetype.settings.definition"
-}
+declare const Event$1 = {
+	INIT: "antetype.init",
+	CLOSE: "antetype.close",
+	DRAW: "antetype.draw",
+	CALC: "antetype.calc",
+	RECALC_FINISHED: "antetype.recalc.finished",
+	MODULES: "antetype.modules",
+	SETTINGS: "antetype.settings.definition",
+} as const;
+export type EventKeys = typeof Event$1[keyof typeof Event$1];
 export declare type RecalculateFinishedEvent = object;
 export interface DrawEvent {
 	element: IBaseDef;
