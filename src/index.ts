@@ -21,7 +21,7 @@ export class AntetypeCore {
 
   async #getCore(modules: Record<string, Module>, canvas: HTMLCanvasElement|null): Promise<ICore> {
     const module = this.#injected!.minstrel.getResourceUrl(this, 'core.js');
-    this.#moduleCore = (await import(module)).default as typeof Core;
+    this.#moduleCore = ((await import(module)) as {default: typeof Core}).default;
     return this.#moduleCore({ canvas, modules: modules as Modules, herald: this.#injected!.herald });
   }
 
@@ -40,3 +40,4 @@ const EnAntetypeCore: IInjectable<IInjected> & ISubscriber = AntetypeCore;
 export default EnAntetypeCore;
 
 export * from "@src/type.d";
+export { ResolveFunction } from '@src/clone'

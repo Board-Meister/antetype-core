@@ -1,3 +1,4 @@
+import { ITypeDefinitionEvent, type ITypeDefinitionMap } from './type.d';
 import {
   IBaseDef,
   IParameters,
@@ -431,10 +432,22 @@ export default function Core(
     })
   }
 
+  const layerDefinitions = (): ITypeDefinitionMap => {
+    const event = new CustomEvent<ITypeDefinitionEvent>(Event.TYPE_DEFINITION, {
+      detail: {
+        definitions: {}
+      }
+    });
+    herald.dispatchSync(event);
+
+    return event.detail.definitions;
+  }
+
   const getModule = (): ICore => ({
     meta: {
       document: __DOCUMENT,
       generateId,
+      layerDefinitions,
     },
     clone: {
       definitions: cloneDefinition,
@@ -487,8 +500,8 @@ export default function Core(
       setSettingsDefinition,
     }
   });
-  /** INSTANTIATE PUBLIC METHODS */
-  const module = getModule();
+
+  const module = getModule(); /** INSTANTIATE PUBLIC METHODS */
 
   const isObject = (item: unknown): boolean => !!(item && typeof item === 'object' && !Array.isArray(item));
 
@@ -535,7 +548,6 @@ export default function Core(
 
     return doc;
   }
-
 
   const unregister = herald.batch([
     {

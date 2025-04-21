@@ -113,6 +113,7 @@ declare class Herald {
 	unregister(event: string, symbol: symbol): void;
 }
 declare type UnknownRecord = Record<symbol | string, unknown>;
+export type ResolveFunction = (module: Modules, ctx: CanvasRenderingContext2D, object: unknown) => Promise<unknown>;
 type PathProps = JSX.IntrinsicAttributes & RouteProps;
 interface INavItem {
 	node?: React$1.ReactNode;
@@ -157,9 +158,19 @@ declare const Event$1 = {
 	RECALC_FINISHED: "antetype.recalc.finished",
 	MODULES: "antetype.modules",
 	SETTINGS: "antetype.settings.definition",
+	TYPE_DEFINITION: "antetype.layer.type.definition",
 } as const;
 export type EventKeys = typeof Event$1[keyof typeof Event$1];
 export declare type RecalculateFinishedEvent = object;
+export type ITypeDefinitionPrimitive = "boolean" | "string" | "number";
+export type TypeDefinition = {
+	[key: string]: ITypeDefinitionPrimitive | TypeDefinition | TypeDefinition[];
+} | (ITypeDefinitionPrimitive)[] | TypeDefinition[];
+export type ITypeDefinitionMap = Record<string, TypeDefinition>;
+export interface ITypeDefinitionEvent {
+	definitions: ITypeDefinitionMap;
+}
+export type TypeDefinitionEvent = CustomEvent<ITypeDefinitionEvent>;
 export interface DrawEvent {
 	element: IBaseDef;
 }
@@ -288,6 +299,7 @@ export interface ICore extends Module$1 {
 	meta: {
 		document: IDocumentDef;
 		generateId: () => string;
+		layerDefinitions: () => ITypeDefinitionMap;
 	};
 	clone: {
 		definitions: (data: IBaseDef) => Promise<IBaseDef>;
