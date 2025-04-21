@@ -198,7 +198,8 @@ export interface ISettingsDefinitionFieldContainer extends ISettingsDefinitionFi
 	fields: SettingsDefinitionField[][];
 	collapsable?: boolean;
 }
-export type ISettingsInputValue = string | number | string[] | number[] | Record<string, any> | Record<string, any>[] | undefined;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ISettingsInputValue = string | number | (string | number | Record<string, any>)[] | Record<string, any> | undefined;
 export interface ISettingsDefinitionFieldInput extends ISettingsDefinitionFieldGeneric {
 	name: string;
 	value: ISettingsInputValue;
@@ -208,6 +209,7 @@ export interface ISettingsDefinitionFieldList extends ISettingsDefinitionFieldGe
 	name: string;
 	fields: SettingsDefinitionField[][][];
 	template: SettingsDefinitionField[][];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	entry: Record<string, any>;
 }
 export interface ISettingsDefinitionTab {
@@ -225,6 +227,7 @@ export interface ISettingsDefinition {
 }
 export interface ISettingEvent {
 	settings: ISettingsDefinition[];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	additional: Record<string, any>;
 }
 export type SettingsEvent = CustomEvent<ISettingEvent>;
@@ -332,8 +335,10 @@ export interface ICore extends Module$1 {
 	};
 	setting: {
 		set: (name: string, value: unknown) => void;
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 		get: <T = unknown>(name: string) => T | null;
 		has: (name: string) => boolean;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		retrieveSettingsDefinition: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
 		setSettingsDefinition: (e: SettingsEvent) => void;
 	};

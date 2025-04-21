@@ -52,6 +52,7 @@ export default function Core(
 
   console.log(__DOCUMENT)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const debounce = (func: (...args: any[]) => void|Promise<void>, timeout = 100): () => void => {
     let timer: ReturnType<typeof setTimeout>;
     return (...args: unknown[]): void => {
@@ -105,15 +106,23 @@ export default function Core(
 
   const moveCalculationToQueue = (func: () => Promise<IBaseDef|null>): Promise<IBaseDef|null> => {
     let trigger = false;
-    const promise = new Promise<IBaseDef|null>(async (resolve): Promise<void> => {
-      while (!trigger) {
-        await new Promise(r => setTimeout(r, 100));
-      }
+    const awaitQueue = (resolve: (result: IBaseDef|null) => void): void => {
+      setTimeout(() => {
+        if (!trigger) {
+          awaitQueue(resolve);
+          return;
+        }
 
-      void func().then(result => {
-        resolve(result);
+        void func().then(result => {
+          resolve(result);
+        })
       })
+    }
+
+    const promise = new Promise<IBaseDef|null>(resolve => {
+      awaitQueue(resolve)
     });
+
     calcQueue.push(() => {
       trigger = true;
       return promise;
@@ -320,6 +329,7 @@ export default function Core(
   }
 
   const retrieveSettingsDefinition = async function (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     additional: Record<string, any> = {},
   ): Promise<ISettingsDefinition[]> {
     const event: SettingsEvent = new CustomEvent(Event.SETTINGS, {
@@ -486,6 +496,7 @@ export default function Core(
         }
         setSetting(path, value, __DOCUMENT.settings)
       },
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
       get<T = unknown>(name: string): T | null {
         const path = name.split('.');
         if (!path.slice(-1)) {
