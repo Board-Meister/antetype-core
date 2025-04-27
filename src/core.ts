@@ -1,5 +1,6 @@
-import { ITypeDefinitionEvent, type ITypeDefinitionMap } from './type.d';
 import {
+  ITypeDefinitionEvent,
+  type ITypeDefinitionMap,
   IBaseDef,
   IParameters,
   ICore,
@@ -16,22 +17,19 @@ import {
   ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings,
   InitEvent
 } from "@src/type.d";
-import Clone from "@src/clone";
+import Clone from "@src/component/clone";
 
 export interface IInternalCore {
   init: (base: Layout, settings: ISettings) => Promise<IDocumentDef>;
 }
 
-export default function Core(
+export default function Core (
   parameters: IParameters
 ): ICore {
   const {
-    canvas,
     herald,
   } = parameters;
-  if (!canvas) {
-    throw new Error('[Antetype Workspace] Provided canvas is empty')
-  }
+
   const sessionQueue: symbol[] = [];
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
   const layerPolicy = Symbol('layer');
@@ -81,7 +79,7 @@ export default function Core(
   })
 
   const draw = (element: IBaseDef): void => {
-    herald.dispatchSync(new CustomEvent(Event.DRAW, { detail: { element } as DrawEvent }));
+    herald.dispatchSync(new CustomEvent<DrawEvent>(Event.DRAW, { detail: { element } }));
   }
 
   const redraw = (layout: IBaseDef[] = __DOCUMENT.layout): void => {
@@ -158,7 +156,7 @@ export default function Core(
   }
 
   const generateId = (): string => Math.random().toString(16).slice(2);
-  const isLayer = (layer: Record<symbol, unknown>): boolean => typeof getOriginal(layer)[layerPolicy] == 'number';
+  const isLayer = (layer: Record<symbol, unknown>): boolean => getClone(layer)[layerPolicy] === true;
   const markAsLayer = (layer: IBaseDef): IBaseDef => {
     layer[layerPolicy] = true;
     getOriginal(layer).id ??= generateId();
@@ -220,7 +218,6 @@ export default function Core(
     const newLayer = await calc(original, parent, position);
 
     if (newLayer === null) {
-      remove(original);
       removeVolatile(original);
       return;
     }
@@ -323,6 +320,7 @@ export default function Core(
       const myFont = new FontFace(font.name, 'url(' + font.url + ')');
 
       document.fonts.add(await myFont.load());
+      module.view.redrawDebounce();
     } catch (error) {
       console.error('Font couldn\'t be loaded:', font.name + ',', font.url, error)
     }
@@ -466,8 +464,6 @@ export default function Core(
     },
     manage: {
       markAsLayer,
-      move,
-      resize,
       remove,
       removeVolatile,
       add,
@@ -480,6 +476,8 @@ export default function Core(
       draw,
       redraw,
       redrawDebounce: debounce(redraw),
+      move,
+      resize,
     },
     policies: {
       isLayer,
@@ -507,8 +505,7 @@ export default function Core(
       has: function (name: string): boolean {
         return !!(this.get(name) ?? false)
       },
-      retrieveSettingsDefinition,
-      setSettingsDefinition,
+      retrieve: retrieveSettingsDefinition,
     }
   });
 
@@ -545,14 +542,14 @@ export default function Core(
     }
 
     const doc = __DOCUMENT;
-    doc.settings = mergeDeep({}, __DOCUMENT.settings, settings) as ISettings;
+    doc.settings = mergeDeep({}, doc.settings, settings) as ISettings;
     doc.base = base;
 
-    const promises: Promise<void>[] = [];
-    (module.setting.get<IFont[]>('core.fonts') ?? []).forEach((font: IFont) => {
-      promises.push(module.font.load(font));
-    });
-    await Promise.all(promises);
+    void Promise.all((module.setting.get<IFont[]>('core.fonts') ?? []).map(font => module.font.load(font)))
+      .then(() => {
+        void herald.dispatch(new CustomEvent(Event.FONTS_LOADED))
+      })
+    ;
 
     doc.layout = await module.view.recalculate(doc, doc.base);
     module.view.redraw(doc.layout);
@@ -578,7 +575,7 @@ export default function Core(
     {
       event: Event.SETTINGS,
       subscription: (e: SettingsEvent): void => {
-        module.setting.setSettingsDefinition(e);
+        setSettingsDefinition(e);
       }
     },
     {

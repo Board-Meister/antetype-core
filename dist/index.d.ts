@@ -113,7 +113,7 @@ declare class Herald {
 	unregister(event: string, symbol: symbol): void;
 }
 declare type UnknownRecord = Record<symbol | string, unknown>;
-export type ResolveFunction = (module: Modules, ctx: CanvasRenderingContext2D, object: unknown) => Promise<unknown>;
+export type ResolveFunction = (ctx: CanvasRenderingContext2D, object: unknown) => Promise<unknown>;
 type PathProps = JSX.IntrinsicAttributes & RouteProps;
 interface INavItem {
 	node?: React$1.ReactNode;
@@ -143,12 +143,11 @@ declare class Minstrel {
 }
 export interface ModulesEvent {
 	modules: Record<string, Module$1>;
-	canvas: HTMLCanvasElement | null;
+	canvas: HTMLCanvasElement;
 }
 declare type Module$1 = object;
 export interface Modules {
 	[key: string]: Module$1 | undefined;
-	core: ICore;
 }
 declare const Event$1 = {
 	INIT: "antetype.init",
@@ -159,7 +158,9 @@ declare const Event$1 = {
 	MODULES: "antetype.modules",
 	SETTINGS: "antetype.settings.definition",
 	TYPE_DEFINITION: "antetype.layer.type.definition",
+	FONTS_LOADED: "antetype.font.loaded",
 } as const;
+export type FontsLoadedEvent = CustomEvent;
 export type EventKeys = typeof Event$1[keyof typeof Event$1];
 export declare type RecalculateFinishedEvent = object;
 export type ITypeDefinitionPrimitive = "boolean" | "string" | "number";
@@ -290,9 +291,9 @@ export interface IInjected extends Record<string, object> {
 	herald: Herald;
 }
 export interface IParameters {
-	canvas: HTMLCanvasElement | null;
-	modules: Modules;
+	canvas: HTMLCanvasElement;
 	herald: Herald;
+	modules?: Modules;
 }
 export interface IFont {
 	url: string;
@@ -313,8 +314,6 @@ export interface ICore extends Module$1 {
 		markAsLayer: (layer: IBaseDef) => IBaseDef;
 		add: (def: IBaseDef, parent?: IParentDef | null, position?: number | null) => void;
 		addVolatile: (def: IBaseDef, parent?: IParentDef | null, position?: number | null) => void;
-		move: (original: IBaseDef, newStart: IStart) => Promise<void>;
-		resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
 		remove: (def: IBaseDef) => void;
 		removeVolatile: (def: IBaseDef) => void;
 		calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
@@ -325,6 +324,8 @@ export interface ICore extends Module$1 {
 		redraw: (layout?: Layout) => void;
 		recalculate: (parent?: IParentDef, layout?: Layout, currentSession?: symbol | null) => Promise<Layout>;
 		redrawDebounce: (layout?: Layout) => void;
+		move: (original: IBaseDef, newStart: IStart) => Promise<void>;
+		resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
 	};
 	policies: {
 		isLayer: (layer: Record<symbol, unknown>) => boolean;
@@ -339,8 +340,7 @@ export interface ICore extends Module$1 {
 		get: <T = unknown>(name: string) => T | null;
 		has: (name: string) => boolean;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		retrieveSettingsDefinition: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
-		setSettingsDefinition: (e: SettingsEvent) => void;
+		retrieve: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
 	};
 }
 export type Layout = (IBaseDef | IParentDef)[];

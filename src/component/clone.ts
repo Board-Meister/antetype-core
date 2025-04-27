@@ -1,4 +1,4 @@
-import { IBaseDef, IParameters, type Modules } from "@src/index";
+import { IBaseDef, IParameters } from "@src/index";
 
 export interface IClone {
   cloneDefinition: (data: IBaseDef) => Promise<IBaseDef>;
@@ -11,13 +11,12 @@ export declare type UnknownRecord = Record<symbol | string, unknown>;
 declare type RecursiveWeakMap = WeakMap<UnknownRecord, UnknownRecord>;
 
 export type ResolveFunction = (
-  module: Modules,
   ctx: CanvasRenderingContext2D,
   object: unknown
 ) => Promise<unknown>;
 
-export default function Clone({ modules, canvas }: IParameters): IClone {
-  const ctx = canvas!.getContext('2d');
+export default function Clone({ canvas }: IParameters): IClone {
+  const ctx = canvas.getContext('2d');
   const maxDepth = 50;
   const originalSymbol = Symbol('original');
   const cloneSymbol = Symbol('clone');
@@ -99,7 +98,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
 
   const resolve = async (value: unknown, object: unknown): Promise<unknown> => {
     return typeof value == 'function'
-      ? await (value as ResolveFunction)(modules, ctx!, object)
+      ? await (value as ResolveFunction)(ctx!, object)
       : value
     ;
   }
@@ -108,7 +107,7 @@ export default function Clone({ modules, canvas }: IParameters): IClone {
     return await iterateResolveAndCloneObject(data, new WeakMap()) as IBaseDef;
   }
 
-  const isClone = (layer: Record<symbol, unknown>): boolean => layer[originalSymbol] === true;
+  const isClone = (layer: Record<symbol, unknown>): boolean => !!layer[originalSymbol];
 
   return {
     isClone,

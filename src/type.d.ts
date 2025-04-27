@@ -1,17 +1,16 @@
-import type { UnknownRecord } from "@src/clone";
+import type { UnknownRecord } from "@src/component/clone";
 import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald } from "@boardmeister/herald"
 
 export interface ModulesEvent {
   modules: Record<string, Module>;
-  canvas: HTMLCanvasElement|null;
+  canvas: HTMLCanvasElement;
 }
 
 export declare type Module = object;
 
 export interface Modules {
   [key: string]: Module|undefined;
-  core: ICore;
 }
 
 export const Event = {
@@ -23,7 +22,10 @@ export const Event = {
   MODULES: "antetype.modules",
   SETTINGS: "antetype.settings.definition",
   TYPE_DEFINITION: "antetype.layer.type.definition",
+  FONTS_LOADED: "antetype.font.loaded",
 } as const;
+
+export type FontsLoadedEvent = CustomEvent;
 
 export type EventKeys = typeof Event[keyof typeof Event]
 
@@ -181,9 +183,9 @@ export interface IInjected extends Record<string, object> {
 }
 
 export interface IParameters {
-  canvas: HTMLCanvasElement|null,
-  modules: Modules,
+  canvas: HTMLCanvasElement,
   herald: Herald,
+  modules?: Modules,
 }
 
 export interface IFont {
@@ -206,8 +208,6 @@ export interface ICore extends Module {
     markAsLayer: (layer: IBaseDef) => IBaseDef;
     add:(def: IBaseDef, parent?: IParentDef|null, position?: number|null) => void;
     addVolatile:(def: IBaseDef, parent?: IParentDef|null, position?: number|null) => void;
-    move: (original: IBaseDef, newStart: IStart) => Promise<void>;
-    resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
     remove: (def: IBaseDef) => void;
     removeVolatile: (def: IBaseDef) => void;
     calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
@@ -223,6 +223,8 @@ export interface ICore extends Module {
     redraw: (layout?: Layout) => void;
     recalculate: (parent?: IParentDef, layout?: Layout, currentSession?: symbol|null) => Promise<Layout>;
     redrawDebounce: (layout?: Layout) => void;
+    move: (original: IBaseDef, newStart: IStart) => Promise<void>;
+    resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
   };
   policies: {
     isLayer: (layer: Record<symbol, unknown>) => boolean;
@@ -237,8 +239,7 @@ export interface ICore extends Module {
     get: <T = unknown>(name: string) => T | null;
     has: (name: string)=> boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    retrieveSettingsDefinition: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
-    setSettingsDefinition: (e: SettingsEvent) => void;
+    retrieve: (additional?: Record<string, any>) => Promise<ISettingsDefinition[]>;
   }
 }
 
