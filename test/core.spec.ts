@@ -6,7 +6,6 @@ import type {
 } from "@src/type.d";
 import { Event } from "@src/type.d";
 import { generateRandomLayer } from 'test/helpers/definition.helper';
-import { subscribe } from 'diagnostics_channel';
 
 
 describe('Core module', () => {

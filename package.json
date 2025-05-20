@@ -10,12 +10,11 @@
   ],
   "scripts": {
     "typescript": "./node_modules/.bin/dts-bundle-generator --no-check --export-referenced-types false --project tsconfig.json -o dist/index.d.ts src/index.ts",
-    "link": "npm link @boardmeister/antetype @boardmeister/minstrel @boardmeister/herald @boardmeister/marshal",
     "build": "node esbuild.config.mjs && npm run typescript",
     "test": "npx jasmine-browser-runner runSpecs",
-    "test-jasmin": "npx jasmine-browser-runner runSpecs",
+    "test-jasmine": "npx jasmine-browser-runner runSpecs",
     "test-karma": "npx karma run",
-    "serve-jasmin": "npx jasmine-browser-runner serve",
+    "serve-jasmine": "npx jasmine-browser-runner serve",
     "serve-karma": "npx karma start"
   },
   "repository": {
@@ -66,5 +65,10 @@
     "karma-jasmine": {
       "jasmine-core": "^5.0.0"
     }
+  },
+  "dependencies": {
+    "@boardmeister/herald": "^0.0.1",
+    "@boardmeister/marshal": "^0.0.1",
+    "@boardmeister/minstrel": "^0.0.1"
   }
 }
