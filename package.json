@@ -1,7 +1,7 @@
 {
   "name": "@boardmeister/antetype-core",
-  "version": "0.0.2",
-  "description": "Core of the antetype, defines the flow and provides interface ",
+  "version": "0.0.3",
+  "description": "Core of the antetype, defines the flow and provides the interface",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "@boardmeister/herald": "^0.0.1",
-    "@boardmeister/marshal": "^0.0.1",
+    "@boardmeister/marshal": "^0.0.2",
     "@boardmeister/minstrel": "^0.0.1"
   }
 }

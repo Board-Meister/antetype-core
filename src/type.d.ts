@@ -1,6 +1,6 @@
 import type { UnknownRecord } from "@src/component/clone";
-import type { Minstrel } from "@boardmeister/minstrel"
 import type { Herald } from "@boardmeister/herald"
+import type Marshal from "@boardmeister/marshal";
 
 export interface ModulesEvent {
   modules: Record<string, Module>;
@@ -178,8 +178,8 @@ export interface IDocumentDef extends IParentDef {
 }
 
 export interface IInjected extends Record<string, object> {
-  minstrel: Minstrel;
   herald: Herald;
+  marshal: Marshal;
 }
 
 export interface IParameters {
