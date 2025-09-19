@@ -221,7 +221,7 @@ export interface IInternalCore {
 }
 export function Core(parameters: IParameters): ICore;
 export declare const ID = "core";
-export declare const VERSION = "0.0.3";
+export declare const VERSION = "0.0.4";
 
 export {
 	CloseEvent$1 as CloseEvent,
