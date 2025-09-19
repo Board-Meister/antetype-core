@@ -5,9 +5,17 @@ import Marshal from '@boardmeister/marshal';
 
 declare type UnknownRecord = Record<symbol | string, unknown>;
 export type ResolveFunction = (ctx: CanvasRenderingContext2D, object: unknown) => Promise<unknown>;
-export interface ModulesEvent {
-	modules: Record<string, Module>;
-	canvas: HTMLCanvasElement;
+export interface IModulesEvent {
+	registration: Record<string, ModuleRegistration>;
+}
+export declare type ModulesEvent = CustomEvent<IModulesEvent>;
+export interface ModuleRegistrationWithName extends ModuleRegistration {
+	name: string;
+}
+export interface ModuleRegistration {
+	load: (modules: Modules, canvas: HTMLCanvasElement) => Promise<Module>;
+	requires?: string[];
+	version?: string;
 }
 export declare type Module = object;
 export interface Modules {
@@ -212,6 +220,8 @@ export interface IInternalCore {
 	init: (base: Layout, settings: ISettings) => Promise<IDocumentDef>;
 }
 export function Core(parameters: IParameters): ICore;
+export declare const ID = "core";
+export declare const VERSION = "0.0.3";
 
 export {
 	CloseEvent$1 as CloseEvent,

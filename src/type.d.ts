@@ -1,10 +1,22 @@
+import { ModulesEvent } from './type.d';
 import type { UnknownRecord } from "@src/component/clone";
 import type { Herald } from "@boardmeister/herald"
 import type Marshal from "@boardmeister/marshal";
 
-export interface ModulesEvent {
-  modules: Record<string, Module>;
-  canvas: HTMLCanvasElement;
+export interface IModulesEvent {
+  registration: Record<string, ModuleRegistration>;
+}
+
+export declare type ModulesEvent = CustomEvent<IModulesEvent>;
+
+export interface ModuleRegistrationWithName extends ModuleRegistration {
+  name: string;
+}
+
+export interface ModuleRegistration {
+  load: (modules: Modules, canvas: HTMLCanvasElement) => Promise<Module>;
+  requires?: string[];
+  version?: string;
 }
 
 export declare type Module = object;
