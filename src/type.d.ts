@@ -13,8 +13,16 @@ export interface ModuleRegistrationWithName extends ModuleRegistration {
   name: string;
 }
 
+export type ModuleGeneratorFn = (modules: Modules, canvas: HTMLCanvasElement) => Module;
+export type ModuleLoadFn = () => Promise<ModuleGeneratorFn>;
+
+export interface ModuleGenerator {
+  init: ModuleGeneratorFn;
+  name: string;
+}
+
 export interface ModuleRegistration {
-  load: (modules: Modules, canvas: HTMLCanvasElement) => Promise<Module>;
+  load: ModuleLoadFn;
   requires?: string[];
   version?: string;
 }

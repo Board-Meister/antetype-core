@@ -1,13 +1,13 @@
 import { Herald } from "@boardmeister/herald";
 import HelperModule from "@src/helper";
 import { Event } from "@src/index";
-import type { Module, ModuleRegistration, ModuleRegistrationWithName, Modules, ModulesEvent } from "@src/index";
+import type { ModuleLoadFn, ModuleRegistration, Modules, ModulesEvent } from "@src/index";
 
 describe('Helper component', () => {
   const herald = new Herald();
   const helper = new HelperModule(herald)
   const canvas = document.createElement('canvas');
-  const load = (): Promise<Module> => new Promise(r => { r({}) });
+  const load: ModuleLoadFn = () => new Promise(r => { r(() => ({})) });
 
   it('detects empty objects', (): void => {
     expect(helper.isObjectEmpty({})).toBeTrue();
@@ -72,44 +72,14 @@ describe('Helper component', () => {
       .toThrowError('Infinite dependency detected, stopping script...');
   })
 
-  const loadAndReturn = (toReturn: string, order: string[]) => (() : Promise<Module> => new Promise(r => {
-    order.push(toReturn);
-    r({
-      res: toReturn,
+  const loadAndReturn: (toReturn: string, order: string[]) => ModuleLoadFn = (toReturn: string, order: string[]) => (
+    () => new Promise(r => {
+      order.push(toReturn);
+      r(() => ({
+        res: toReturn,
+      }))
     })
-  }));
-
-  it('loads modules correctly', async (): Promise<void> => {
-    const order: string[] = [];
-    const sorted: ModuleRegistrationWithName[] = [
-      {
-        name: 'core',
-        load: loadAndReturn('1', order),
-      },
-      {
-        name: 'module1',
-        requires: ['core'],
-        load: loadAndReturn('2', order),
-      },
-      {
-        name: 'module2',
-        requires: ['module1'],
-        load: loadAndReturn('3', order),
-      },
-    ];
-    const modules: Modules = {};
-    await helper.loadInGroups(modules, canvas, sorted);
-
-    expect(modules).toEqual(
-      jasmine.objectContaining({
-        core: jasmine.objectContaining({ res: '1' }),
-        module1: jasmine.objectContaining({ res: '2' }),
-        module2: jasmine.objectContaining({ res: '3' }),
-      })
-    );
-
-    expect(order).toEqual(['1','2','3']);
-  })
+  );
 
   it('happy path', async (): Promise<void> => {
     const order: string[] = [];

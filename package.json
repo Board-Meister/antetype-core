@@ -1,6 +1,6 @@
 {
   "name": "@boardmeister/antetype-core",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Core of the antetype, defines the flow and provides the interface",
   "main": "dist/index.js",
   "module": "dist/index.js",

@@ -2,14 +2,15 @@ import type { IInjectable } from "@boardmeister/marshal"
 import type { ISubscriber, Subscriptions } from "@boardmeister/herald"
 import type Core from "@src/core";
 import type {
-  ICore,
   IInjected,
   Modules,
   ModulesEvent,
 } from "@src/type.d";
 import { Event } from "@src/type.d";
-import { ID, VERSION } from "@src/index";
 import type HelperModule from "@src/helper";
+
+export const ID = 'core';
+export const VERSION = '0.0.5';
 
 export class AntetypeCore {
   #injected?: IInjected;
@@ -32,7 +33,11 @@ export class AntetypeCore {
     const { registration } = event.detail;
 
     registration[ID] = {
-      load: (modules, canvas) => this.#getCore(modules, canvas),
+      load: async () => {
+        this.#moduleCore ??= (await this.#import<typeof Core>('core.js')).default;
+
+        return (modules, canvas) => this.#moduleCore!({ canvas, modules: modules, herald: this.#injected!.herald })
+      },
       version: VERSION,
     };
   }
@@ -44,11 +49,6 @@ export class AntetypeCore {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   #import<T>(suffix: string): Promise<{default: T}> {
     return import(this.#injected!.marshal.getResourceUrl(this, suffix));
-  }
-
-  async #getCore(modules: Modules, canvas: HTMLCanvasElement): Promise<ICore> {
-    this.#moduleCore ??= (await this.#import<typeof Core>('core.js')).default;
-    return this.#moduleCore({ canvas, modules: modules, herald: this.#injected!.herald });
   }
 
   async #getHelper(): Promise<HelperModule> {
