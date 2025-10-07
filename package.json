@@ -70,5 +70,6 @@
     "@boardmeister/herald": "^0.0.1",
     "@boardmeister/marshal": "^0.0.2",
     "@boardmeister/minstrel": "^0.0.1"
-  }
+  },
+  "sideEffects": false
 }

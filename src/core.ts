@@ -315,15 +315,28 @@ export default function Core (
     recalculatePositionInLayout(layout);
   }
 
-  const loadFont = async (font: IFont): Promise<void> => {
+  const loadFont = async (font: IFont): Promise<FontFaceSet|null> => {
     try {
       const myFont = new FontFace(font.name, 'url(' + font.url + ')');
 
-      document.fonts.add(await myFont.load());
+      const fontFace = document.fonts.add(await myFont.load());
       module.view.redrawDebounce();
+
+      return fontFace;
     } catch (error) {
       console.error('Font couldn\'t be loaded:', font.name + ',', font.url, error)
+      return null;
     }
+  }
+
+  const reloadFonts = async (): Promise<(FontFaceSet|null)[]> => {
+    document.fonts.clear();
+    const promises = [];
+    for (const font of __DOCUMENT.settings?.core?.fonts ?? []) {
+      promises.push(loadFont(font));
+    }
+
+    return Promise.all(promises);
   }
 
   const retrieveSettingsDefinition = async function (
@@ -484,7 +497,8 @@ export default function Core (
       isClone,
     },
     font: {
-      load: loadFont
+      load: loadFont,
+      reload: reloadFonts,
     },
     setting: {
       set(name: string, value: unknown): void {

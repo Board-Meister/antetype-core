@@ -251,7 +251,8 @@ export interface ICore extends Module {
     isClone: (layer: Record<symbol, unknown>) => boolean;
   };
   font: {
-    load: (font: IFont) => Promise<void>,
+    load: (font: IFont) => Promise<FontFaceSet|null>,
+    reload: () => Promise<(FontFaceSet|null)[]>,
   };
   setting: {
     set: (name: string, value: unknown) => void;
