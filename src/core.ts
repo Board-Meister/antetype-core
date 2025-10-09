@@ -102,9 +102,9 @@ export default function Core (
     }
   }
 
-  const moveCalculationToQueue = (func: () => Promise<IBaseDef|null>): Promise<IBaseDef|null> => {
+  const moveCalculationToQueue = (func: () => Promise<IBaseDef>): Promise<IBaseDef> => {
     let trigger = false;
-    const awaitQueue = (resolve: (result: IBaseDef|null) => void): void => {
+    const awaitQueue = (resolve: (result: IBaseDef) => void): void => {
       setTimeout(() => {
         if (!trigger) {
           awaitQueue(resolve);
@@ -117,7 +117,7 @@ export default function Core (
       })
     }
 
-    const promise = new Promise<IBaseDef|null>(resolve => {
+    const promise = new Promise<IBaseDef>(resolve => {
       awaitQueue(resolve)
     });
 
@@ -135,7 +135,7 @@ export default function Core (
     parent: IParentDef|null = null,
     position: number|null = null,
     currentSession: symbol|null = null,
-  ): Promise<IBaseDef|null> => {
+  ): Promise<IBaseDef> => {
     if (currentSession !== (sessionQueue[0] ?? null)) {
       return moveCalculationToQueue(() => calc(element, parent, position, currentSession));
     }
@@ -147,10 +147,8 @@ export default function Core (
     await herald.dispatch(event);
 
     const clone = event.detail.element;
-    if (clone !== null) {
-      markAsLayer(clone);
-      assignHierarchy(clone, parent ? getClone(parent) : null, position);
-    }
+    markAsLayer(clone);
+    assignHierarchy(clone, parent ? getClone(parent) : null, position);
 
     return clone;
   }
@@ -193,8 +191,7 @@ export default function Core (
 
     const calculated: Layout = [];
     for (let i = 0; i < layout.length; i++) {
-      const calcLayer = await calc(layout[i], parent, i, currentSession);
-      if (calcLayer !== null) calculated.push(calcLayer);
+      calculated.push(await calc(layout[i], parent, i, currentSession));
     }
 
     parent.layout = calculated;
@@ -215,14 +212,7 @@ export default function Core (
     const position = original.hierarchy.position;
     const parent = original.hierarchy.parent;
 
-    const newLayer = await calc(original, parent, position);
-
-    if (newLayer === null) {
-      removeVolatile(original);
-      return;
-    }
-
-    getClone(parent).layout[position] = newLayer;
+    getClone(parent).layout[position] = await calc(original, parent, position);
   }
 
   const move = async (original: IBaseDef, newStart: IStart): Promise<void> => {

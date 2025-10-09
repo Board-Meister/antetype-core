@@ -54,7 +54,7 @@ export interface DrawEvent {
 	element: IBaseDef;
 }
 export interface CalcEvent {
-	element: IBaseDef | null;
+	element: IBaseDef;
 	sessionId: symbol | null;
 }
 export interface ISettingFont {
@@ -197,7 +197,7 @@ export interface ICore extends Module {
 		calcAndUpdateLayer: (original: IBaseDef) => Promise<void>;
 	};
 	view: {
-		calc: (element: IBaseDef, parent?: IParentDef, position?: number, currentSession?: symbol | null) => Promise<IBaseDef | null>;
+		calc: (element: IBaseDef, parent?: IParentDef, position?: number, currentSession?: symbol | null) => Promise<IBaseDef>;
 		draw: (element: IBaseDef) => void;
 		redraw: (layout?: Layout) => void;
 		recalculate: (parent?: IParentDef, layout?: Layout, currentSession?: symbol | null) => Promise<Layout>;
