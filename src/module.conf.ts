@@ -25,8 +25,8 @@ export class AntetypeCore {
     this.#injected = injections;
   }
 
-  async loadModules(required: string[], canvas: HTMLCanvasElement): Promise<Modules> {
-    return (await this.#getHelper()).loadModules(required, canvas);
+  async loadModules(required: string[]): Promise<Modules> {
+    return (await this.#getHelper()).loadModules(required);
   }
 
   register(event: ModulesEvent): void {
@@ -36,7 +36,7 @@ export class AntetypeCore {
       load: async () => {
         this.#moduleCore ??= (await this.#import<typeof Core>('core.js')).default;
 
-        return (modules, canvas) => this.#moduleCore!({ canvas, modules: modules, herald: this.#injected!.herald })
+        return modules => this.#moduleCore!({ modules: modules, herald: this.#injected!.herald })
       },
       version: VERSION,
     };

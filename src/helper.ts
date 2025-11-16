@@ -15,7 +15,7 @@ export default class HelperModule {
     this.herald = herald;
   }
 
-  async loadModules(required: string[], canvas: HTMLCanvasElement): Promise<Modules> {
+  async loadModules(required: string[]): Promise<Modules> {
     const requiredModules: Record<string, ModuleRegistration> = {}
     const event = new CustomEvent<IModulesEvent>(Event.MODULES, {  detail: { registration: {} } });
     await this.herald.dispatch(event);
@@ -29,10 +29,10 @@ export default class HelperModule {
       requiredModules[id] = registration[id];
     }
 
-    return this.load(canvas, this.orderModules(requiredModules));
+    return this.load(this.orderModules(requiredModules));
   }
 
-  async load(canvas: HTMLCanvasElement, sorted: ModuleRegistrationWithName[],): Promise<Modules> {
+  async load(sorted: ModuleRegistrationWithName[],): Promise<Modules> {
     const modules: Modules = {};
     const loaded = await Promise.all(
       sorted.reduce((stack: Promise<ModuleGenerator>[], config: ModuleRegistrationWithName) => {
@@ -45,56 +45,11 @@ export default class HelperModule {
       }, [])
     );
     loaded.forEach(generator => {
-      modules[generator.name] = generator.init(modules, canvas);
+      modules[generator.name] = generator.init(modules);
     })
 
     return modules;
   }
-
-  // loadInGroups(
-  //   modules: Modules,
-  //   canvas: HTMLCanvasElement,
-  //   sorted: ModuleRegistrationWithName[],
-  // ): Promise<ModuleRegistrationWithName[][]> {
-  //   const loadGroups: ModuleRegistrationWithName[][] = [[]];
-  //   const loaded: Record<string, boolean> = {};
-  //   const ejectLastLoadGroup = (): void => {
-  //     const last = loadGroups.slice(-1)[0];
-  //     for (const config of last) {
-  //       loaded[config.name] = true;
-  //     }
-  //   }
-  //   for (const config of sorted) {
-  //     for (const name of config.requires ?? []) {
-  //       if (!loaded[name]) {
-  //         ejectLastLoadGroup();
-  //         loadGroups.push([]);
-  //       }
-  //     }
-  //     loadGroups.slice(-1)[0].push(config);
-  //   }
-
-  //   console.log('load groups', loadGroups);
-
-
-  //   const promises: Promise<ModuleRegistrationWithName[]>[] = [];
-  //   for (const group of loadGroups) {
-  //     const groupPromises = [];
-  //     for (const config of group) {
-  //       groupPromises.push(new Promise(resolve => {
-  //         void config.load(modules, canvas)
-  //           .then(loaded => {
-  //             modules[config.name] = loaded;
-  //             resolve(loaded);
-  //           })
-  //         ;
-  //       }));
-  //     }
-  //     promises.push(Promise.all(group));
-  //   }
-
-  //   return Promise.all(promises);
-  // }
 
   orderModules(moduleRegistry: Record<string, ModuleRegistration>): ModuleRegistrationWithName[] {
     const sorted: ModuleRegistrationWithName[] = [],

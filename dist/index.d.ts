@@ -4,7 +4,7 @@ import { Herald, Subscriptions } from '@boardmeister/herald';
 import Marshal from '@boardmeister/marshal';
 
 declare type UnknownRecord = Record<symbol | string, unknown>;
-export type ResolveFunction = (ctx: CanvasRenderingContext2D, object: unknown) => Promise<unknown>;
+export type ResolveFunction = (ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined, object: unknown) => Promise<unknown>;
 export interface IModulesEvent {
 	registration: Record<string, ModuleRegistration>;
 }
@@ -12,7 +12,7 @@ export declare type ModulesEvent = CustomEvent<IModulesEvent>;
 export interface ModuleRegistrationWithName extends ModuleRegistration {
 	name: string;
 }
-export type ModuleGeneratorFn = (modules: Modules, canvas: HTMLCanvasElement) => Module;
+export type ModuleGeneratorFn = (modules: Modules) => Module;
 export type ModuleLoadFn = () => Promise<ModuleGeneratorFn>;
 export interface ModuleGenerator {
 	init: ModuleGeneratorFn;
@@ -25,6 +25,7 @@ export interface ModuleRegistration {
 }
 export declare type Module = object;
 export interface Modules {
+	core?: ICore;
 	[key: string]: Module | undefined;
 }
 declare const Event$1 = {
@@ -37,6 +38,7 @@ declare const Event$1 = {
 	SETTINGS: "antetype.settings.definition",
 	TYPE_DEFINITION: "antetype.layer.type.definition",
 	FONTS_LOADED: "antetype.font.loaded",
+	CANVAS_CHANGE: "antetype.canvas.change",
 } as const;
 export type FontsLoadedEvent = CustomEvent;
 export type EventKeys = typeof Event$1[keyof typeof Event$1];
@@ -46,6 +48,12 @@ export type TypeDefinition = {
 	[key: string]: ITypeDefinitionPrimitive | TypeDefinition | TypeDefinition[];
 } | (ITypeDefinitionPrimitive)[] | TypeDefinition[];
 export type ITypeDefinitionMap = Record<string, TypeDefinition>;
+export type Canvas = HTMLCanvasElement | OffscreenCanvas;
+export interface ICanvasChangeEvent {
+	current: Canvas | null;
+	previous: Canvas | null;
+}
+export type CanvasChangeEvent = CustomEvent<ICanvasChangeEvent>;
 export interface ITypeDefinitionEvent {
 	definitions: ITypeDefinitionMap;
 }
@@ -169,7 +177,6 @@ export interface IInjected extends Record<string, object> {
 	marshal: Marshal;
 }
 export interface IParameters {
-	canvas: HTMLCanvasElement;
 	herald: Herald;
 	modules?: Modules;
 }
@@ -182,6 +189,8 @@ export interface ICore extends Module {
 		document: IDocumentDef;
 		generateId: () => string;
 		layerDefinitions: () => ITypeDefinitionMap;
+		getCanvas: () => Canvas | null;
+		setCanvas: (newCanvas: null | Canvas) => void;
 	};
 	clone: {
 		definitions: (data: IBaseDef) => Promise<IBaseDef>;
@@ -233,7 +242,7 @@ export declare class AntetypeCore {
 	#private;
 	static inject: Record<string, string>;
 	inject(injections: IInjected): void;
-	loadModules(required: string[], canvas: HTMLCanvasElement): Promise<Modules>;
+	loadModules(required: string[]): Promise<Modules>;
 	register(event: ModulesEvent): void;
 	static subscriptions: Subscriptions;
 }

@@ -11,12 +11,8 @@ import { generateRandomLayer } from 'test/helpers/definition.helper';
 describe('Core module', () => {
   const herald = new Herald();
   const canvas = document.createElement('canvas');
-  const core = Core(
-    {
-      canvas,
-      herald,
-    }
-  );
+  const core = Core({ herald });
+  core.meta.setCanvas(canvas);
 
   it('initializes properly', async () => {
     let drawn = 0;
@@ -228,7 +224,7 @@ describe('Core module', () => {
         subscription: (e: CustomEvent<CalcEvent>) => {
           const { element } = e.detail;
           if (element?.type === 'return_null') {
-            e.detail.element = null;
+            e.detail.element = { type: 'none' };
             return;
           }
 

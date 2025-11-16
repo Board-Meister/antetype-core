@@ -13,7 +13,7 @@ export interface ModuleRegistrationWithName extends ModuleRegistration {
   name: string;
 }
 
-export type ModuleGeneratorFn = (modules: Modules, canvas: HTMLCanvasElement) => Module;
+export type ModuleGeneratorFn = (modules: Modules) => Module;
 export type ModuleLoadFn = () => Promise<ModuleGeneratorFn>;
 
 export interface ModuleGenerator {
@@ -30,6 +30,7 @@ export interface ModuleRegistration {
 export declare type Module = object;
 
 export interface Modules {
+  core?: ICore;
   [key: string]: Module|undefined;
 }
 
@@ -43,6 +44,7 @@ export const Event = {
   SETTINGS: "antetype.settings.definition",
   TYPE_DEFINITION: "antetype.layer.type.definition",
   FONTS_LOADED: "antetype.font.loaded",
+  CANVAS_CHANGE: "antetype.canvas.change",
 } as const;
 
 export type FontsLoadedEvent = CustomEvent;
@@ -57,6 +59,15 @@ export type TypeDefinition = {
 }|(ITypeDefinitionPrimitive)[]|TypeDefinition[];
 
 export type ITypeDefinitionMap = Record<string, TypeDefinition>;
+
+export type Canvas = HTMLCanvasElement|OffscreenCanvas;
+
+export interface ICanvasChangeEvent {
+  current: Canvas|null;
+  previous: Canvas|null;
+}
+
+export type CanvasChangeEvent = CustomEvent<ICanvasChangeEvent>;
 
 export interface ITypeDefinitionEvent {
   definitions: ITypeDefinitionMap,
@@ -203,7 +214,6 @@ export interface IInjected extends Record<string, object> {
 }
 
 export interface IParameters {
-  canvas: HTMLCanvasElement,
   herald: Herald,
   modules?: Modules,
 }
@@ -218,6 +228,8 @@ export interface ICore extends Module {
     document: IDocumentDef;
     generateId: () => string;
     layerDefinitions: () => ITypeDefinitionMap;
+    getCanvas: () => Canvas|null;
+    setCanvas: (newCanvas: null|Canvas) => void;
   },
   clone: {
     definitions: (data: IBaseDef) => Promise<IBaseDef>;

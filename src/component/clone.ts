@@ -1,4 +1,4 @@
-import { IBaseDef, IParameters } from "@src/index";
+import { IBaseDef, type Canvas } from "@src/index";
 
 export interface IClone {
   cloneDefinition: (data: IBaseDef) => Promise<IBaseDef>;
@@ -11,12 +11,11 @@ export declare type UnknownRecord = Record<symbol | string, unknown>;
 declare type RecursiveWeakMap = WeakMap<UnknownRecord, UnknownRecord>;
 
 export type ResolveFunction = (
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasRenderingContext2D|OffscreenCanvasRenderingContext2D | null | undefined,
   object: unknown
 ) => Promise<unknown>;
 
-export default function Clone({ canvas }: IParameters): IClone {
-  const ctx = canvas.getContext('2d');
+export default function Clone(getCanvas: () => Canvas|null): IClone {
   const maxDepth = 50;
   const originalSymbol = Symbol('original');
   const cloneSymbol = Symbol('clone');
@@ -98,7 +97,7 @@ export default function Clone({ canvas }: IParameters): IClone {
 
   const resolve = async (value: unknown, object: unknown): Promise<unknown> => {
     return typeof value == 'function'
-      ? await (value as ResolveFunction)(ctx!, object)
+      ? await (value as ResolveFunction)(getCanvas()?.getContext('2d'), object)
       : value
     ;
   }

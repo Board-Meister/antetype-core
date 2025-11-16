@@ -1,14 +1,9 @@
-import { Herald } from "@boardmeister/herald";
 import Clone from "@src/component/clone";
 import { generateRandomLayer } from "test/helpers/definition.helper";
 
 describe('Clone component', () => {
-  const herald = new Herald();
   const canvas = document.createElement('canvas');
-  const clone = Clone({
-    herald,
-    canvas
-  })
+  const clone = Clone(() => canvas)
 
   it('clones properly', async () => {
     const original = generateRandomLayer('clear1');

@@ -15,7 +15,9 @@ import {
   IDocumentDef,
   RecalculateFinishedEvent,
   ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings,
-  InitEvent
+  InitEvent,
+  type ICanvasChangeEvent,
+  type Canvas
 } from "@src/type.d";
 import Clone from "@src/component/clone";
 
@@ -33,7 +35,10 @@ export default function Core (
   const sessionQueue: symbol[] = [];
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
   const layerPolicy = Symbol('layer');
-  const { cloneDefinition, isClone, getOriginal, getClone } = Clone(parameters);
+  let canvas: Canvas|null = null; // Private canvas
+
+  const getCanvas = (): Canvas|null => canvas;
+  const { cloneDefinition, isClone, getOriginal, getClone } = Clone(getCanvas);
 
   const __DOCUMENT: IDocumentDef = {
     type: 'document',
@@ -49,6 +54,7 @@ export default function Core (
   };
 
   console.log(__DOCUMENT)
+
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const debounce = (func: (...args: any[]) => void|Promise<void>, timeout = 100): () => void => {
@@ -459,6 +465,26 @@ export default function Core (
       document: __DOCUMENT,
       generateId,
       layerDefinitions,
+      getCanvas,
+      setCanvas(newCanvas: null|Canvas): void {
+        if (
+          null === newCanvas
+          || (
+            !(newCanvas instanceof HTMLCanvasElement)
+            && !(newCanvas instanceof OffscreenCanvas)
+          )
+        ) {
+          throw new Error('Invalid value, not an empty or Canvas like')
+        }
+
+        if (canvas != newCanvas) {
+          void herald.dispatch(new CustomEvent<ICanvasChangeEvent>(Event.CANVAS_CHANGE, {
+            detail: { current: newCanvas, previous: canvas }
+          }));
+        }
+
+        canvas = newCanvas;
+      }
     },
     clone: {
       definitions: cloneDefinition,
