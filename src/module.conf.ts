@@ -15,6 +15,7 @@ export const VERSION = '0.0.5';
 export class AntetypeCore {
   #injected?: IInjected;
   #moduleCore: (typeof Core)|null = null;
+  #loading: Promise<void>|false = false;
   #helperModule: (typeof HelperModule)|null = null;
 
   static inject: Record<string, string> = {
@@ -34,7 +35,20 @@ export class AntetypeCore {
 
     registration[ID] = {
       load: async () => {
-        this.#moduleCore ??= (await this.#import<typeof Core>('core.js')).default;
+        if (!this.#moduleCore && !this.#loading) {
+          this.#loading = new Promise(resolve => {
+            void this.#import<typeof Core>('core.js').then(module => {
+              this.#moduleCore = module.default;
+              this.#loading = false;
+              resolve();
+            })
+          });
+        }
+
+        if (this.#loading) {
+          await this.#loading;
+        }
+        console.log("load module3", this.#moduleCore);
 
         return modules => this.#moduleCore!({ modules: modules, herald: this.#injected!.herald })
       },

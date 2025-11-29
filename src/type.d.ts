@@ -229,7 +229,7 @@ export interface ICore extends Module {
     generateId: () => string;
     layerDefinitions: () => ITypeDefinitionMap;
     getCanvas: () => Canvas|null;
-    setCanvas: (newCanvas: null|Canvas) => void;
+    setCanvas: (newCanvas: null|Canvas) => Promise<void>;
   },
   clone: {
     definitions: (data: IBaseDef) => Promise<IBaseDef>;
@@ -255,6 +255,7 @@ export interface ICore extends Module {
     redraw: (layout?: Layout) => void;
     recalculate: (parent?: IParentDef, layout?: Layout, currentSession?: symbol|null) => Promise<Layout>;
     redrawDebounce: (layout?: Layout) => void;
+    recalculateDebounce: (parent?: IParentDef, layout?: Layout, currentSession?: symbol|null) => Promise<Layout>;
     move: (original: IBaseDef, newStart: IStart) => Promise<void>;
     resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
   };

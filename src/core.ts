@@ -20,10 +20,13 @@ import {
   type Canvas
 } from "@src/type.d";
 import Clone from "@src/component/clone";
+import type { IEventSettings } from "@boardmeister/herald";
 
 export interface IInternalCore {
   init: (base: Layout, settings: ISettings) => Promise<IDocumentDef>;
 }
+
+const layerPolicy = Symbol('layer');
 
 export default function Core (
   parameters: IParameters
@@ -34,8 +37,8 @@ export default function Core (
 
   const sessionQueue: symbol[] = [];
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
-  const layerPolicy = Symbol('layer');
   let canvas: Canvas|null = null; // Private canvas
+  let unregisterEventsHandle: VoidFunction|null = null;
 
   const getCanvas = (): Canvas|null => canvas;
   const { cloneDefinition, isClone, getOriginal, getClone } = Clone(getCanvas);
@@ -57,7 +60,7 @@ export default function Core (
 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const debounce = (func: (...args: any[]) => void|Promise<void>, timeout = 100): () => void => {
+  const debounce = (func: (...args: any[]) => unknown, timeout = 100): () => void => {
     let timer: ReturnType<typeof setTimeout>;
     return (...args: unknown[]): void => {
       clearTimeout(timer);
@@ -66,13 +69,56 @@ export default function Core (
       }
 
       timer = setTimeout(() => {
-        void func.apply({}, args);
+        func.apply({}, args);
       }, timeout);
     };
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const debounceAsync = (func: (...args: any[]) => Promise<unknown>, timeout = 100): () => Promise<unknown> => {
+    let timer: ReturnType<typeof setTimeout>;
+    let reject: VoidFunction;
+    let resolve: (value: unknown) => unknown;
+    let currentPromise = new Promise<unknown>(aResolve => { resolve = aResolve});
+
+    return async (...args: unknown[]) => {
+      clearTimeout(timer);
+      if (reject) reject()
+      if (args[0] === 'clear') {
+        resolve(undefined)
+        return currentPromise;
+      }
+
+      const res = new Promise((resolve, aReject) => {
+        timer = setTimeout(() => {
+          resolve(true)
+        }, timeout)
+        reject = aReject;
+      }).catch(() => {
+        return false
+      });
+      if (!await res) {
+        return currentPromise;
+      }
+
+      void func.apply({}, args).then(value => {
+        resolve(value)
+        currentPromise = new Promise(aResolve => { resolve = aResolve});
+      });
+
+      return currentPromise;
+    };
+  }
+
+  const dispatch = (event: CustomEvent, options: IEventSettings = {}): Promise<void> => {
+    return herald.dispatch(event, { origin: canvas, ...options })
+  }
+
+  const dispatchSync = (event: CustomEvent, options: IEventSettings = {}): void => {
+    herald.dispatchSync(event, { origin: canvas, ...options })
+  }
 
   const debounceRecalculatedEvent = debounce(() => {
-    void herald.dispatch(new CustomEvent<RecalculateFinishedEvent>(Event.RECALC_FINISHED));
+    void dispatch(new CustomEvent<RecalculateFinishedEvent>(Event.RECALC_FINISHED));
   })
 
   const debounceCalcQueueCheck = debounce(async (): Promise<void> => {
@@ -85,7 +131,7 @@ export default function Core (
   })
 
   const draw = (element: IBaseDef): void => {
-    herald.dispatchSync(new CustomEvent<DrawEvent>(Event.DRAW, { detail: { element } }));
+    dispatchSync(new CustomEvent<DrawEvent>(Event.DRAW, { detail: { element } }));
   }
 
   const redraw = (layout: IBaseDef[] = __DOCUMENT.layout): void => {
@@ -150,7 +196,7 @@ export default function Core (
     assignHierarchy(original, parent ? getOriginal(parent) : null, position)
 
     const event = new CustomEvent<CalcEvent>(Event.CALC, { detail: { element, sessionId: currentSession } });
-    await herald.dispatch(event);
+    await dispatch(event);
 
     const clone = event.detail.element;
     markAsLayer(clone);
@@ -346,7 +392,7 @@ export default function Core (
       },
     });
 
-    await herald.dispatch(event);
+    await dispatch(event);
 
     return event.detail.settings;
   }
@@ -455,9 +501,32 @@ export default function Core (
         definitions: {}
       }
     });
-    herald.dispatchSync(event);
+    dispatchSync(event);
 
     return event.detail.definitions;
+  }
+
+  const setCanvas = async (newCanvas: null|Canvas): Promise<void> => {
+    if (
+      null === newCanvas
+      || (
+        !(newCanvas instanceof HTMLCanvasElement)
+        && !(newCanvas instanceof OffscreenCanvas)
+      )
+    ) {
+      throw new Error('Invalid value, not an empty or Canvas like')
+    }
+
+    if (canvas == newCanvas) {
+      return;
+    }
+
+    const event = new CustomEvent<ICanvasChangeEvent>(Event.CANVAS_CHANGE, {
+      detail: { current: newCanvas, previous: canvas }
+    });
+    await dispatch(event);
+    canvas = event.detail.current;
+    registerEvents();
   }
 
   const getModule = (): ICore => ({
@@ -466,25 +535,7 @@ export default function Core (
       generateId,
       layerDefinitions,
       getCanvas,
-      setCanvas(newCanvas: null|Canvas): void {
-        if (
-          null === newCanvas
-          || (
-            !(newCanvas instanceof HTMLCanvasElement)
-            && !(newCanvas instanceof OffscreenCanvas)
-          )
-        ) {
-          throw new Error('Invalid value, not an empty or Canvas like')
-        }
-
-        if (canvas != newCanvas) {
-          void herald.dispatch(new CustomEvent<ICanvasChangeEvent>(Event.CANVAS_CHANGE, {
-            detail: { current: newCanvas, previous: canvas }
-          }));
-        }
-
-        canvas = newCanvas;
-      }
+      setCanvas,
     },
     clone: {
       definitions: cloneDefinition,
@@ -505,6 +556,7 @@ export default function Core (
       draw,
       redraw,
       redrawDebounce: debounce(redraw),
+      recalculateDebounce: debounceAsync(recalculate) as typeof recalculate,
       move,
       resize,
     },
@@ -538,8 +590,6 @@ export default function Core (
       retrieve: retrieveSettingsDefinition,
     }
   });
-
-  const module = getModule(); /** INSTANTIATE PUBLIC METHODS */
 
   const isObject = (item: unknown): boolean => !!(item && typeof item === 'object' && !Array.isArray(item));
 
@@ -577,7 +627,7 @@ export default function Core (
 
     void Promise.all((module.setting.get<IFont[]>('core.fonts') ?? []).map(font => module.font.load(font)))
       .then(() => {
-        void herald.dispatch(new CustomEvent(Event.FONTS_LOADED))
+        void dispatch(new CustomEvent(Event.FONTS_LOADED))
       })
     ;
 
@@ -587,43 +637,55 @@ export default function Core (
     return doc;
   }
 
-  const unregister = herald.batch([
-    {
-      event: Event.CLOSE,
-      subscription: () => {
-        unregister();
-      }
-    },
-    {
-      event: Event.INIT,
-      subscription: (event: CustomEvent<InitEvent>): Promise<IDocumentDef> => {
-        const { base, settings } = event.detail;
+  const registerEvents = (): void => {
+    if (unregisterEventsHandle) {
+      unregisterEventsHandle();
+    }
+    unregisterEventsHandle = herald.batch([
+      {
+        event: Event.CLOSE,
+        subscription: () => {
+          unregisterEventsHandle!();
+        },
+        anchor: canvas,
+      },
+      {
+        event: Event.INIT,
+        subscription: (event: CustomEvent<InitEvent>): Promise<IDocumentDef> => {
+          const { base, settings } = event.detail;
 
-        return init(base, settings);
-      }
-    },
-    {
-      event: Event.SETTINGS,
-      subscription: (e: SettingsEvent): void => {
-        setSettingsDefinition(e);
-      }
-    },
-    {
-      event: Event.CALC,
-      subscription: [
-        {
-          priority: -255,
-          method: async (event: CustomEvent<CalcEvent>): Promise<void> => {
-            if (event.detail.element === null) {
-              return;
+          return init(base, settings);
+        },
+        anchor: canvas,
+      },
+      {
+        event: Event.SETTINGS,
+        subscription: (e: SettingsEvent): void => {
+          setSettingsDefinition(e);
+        },
+        anchor: canvas,
+      },
+      {
+        event: Event.CALC,
+        subscription: [
+          {
+            priority: -255,
+            method: async (event: CustomEvent<CalcEvent>): Promise<void> => {
+              if (event.detail.element === null) {
+                return;
+              }
+
+              event.detail.element = await module.clone.definitions(event.detail.element);
             }
-
-            event.detail.element = await module.clone.definitions(event.detail.element);
           }
-        }
-      ]
-    },
-  ]);
+        ],
+        anchor: canvas,
+      },
+    ]);
+  }
+
+  const module = getModule(); /** INSTANTIATE PUBLIC METHODS */
+  registerEvents();
 
   return module;
 }

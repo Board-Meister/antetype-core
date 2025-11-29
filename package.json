@@ -15,7 +15,8 @@
     "test-jasmine": "npx jasmine-browser-runner runSpecs",
     "test-karma": "npx karma run",
     "serve-jasmine": "npx jasmine-browser-runner serve",
-    "serve-karma": "npx karma start"
+    "serve-karma": "npx karma start",
+    "link": "npm link @boardmeister/herald"
   },
   "repository": {
     "type": "git",
@@ -67,7 +68,6 @@
     }
   },
   "dependencies": {
-    "@boardmeister/herald": "^0.0.1",
     "@boardmeister/marshal": "^0.0.2",
     "@boardmeister/minstrel": "^0.0.1"
   },

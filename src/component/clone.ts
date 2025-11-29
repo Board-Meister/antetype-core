@@ -15,10 +15,11 @@ export type ResolveFunction = (
   object: unknown
 ) => Promise<unknown>;
 
+const originalSymbol = Symbol('original');
+const cloneSymbol = Symbol('clone');
+
 export default function Clone(getCanvas: () => Canvas|null): IClone {
   const maxDepth = 50;
-  const originalSymbol = Symbol('original');
-  const cloneSymbol = Symbol('clone');
 
   const isObject = (value: unknown): boolean => {
     return typeof value === 'object' && !Array.isArray(value) && value !== null;
