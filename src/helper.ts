@@ -44,9 +44,10 @@ export default class HelperModule {
         return stack;
       }, [])
     );
-    loaded.forEach(generator => {
-      modules[generator.name] = generator.init(modules);
-    })
+
+    for (const generator of loaded) {
+      modules[generator.name] = await generator.init(modules);
+    }
 
     return modules;
   }

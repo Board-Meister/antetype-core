@@ -13,7 +13,7 @@ export interface ModuleRegistrationWithName extends ModuleRegistration {
   name: string;
 }
 
-export type ModuleGeneratorFn = (modules: Modules) => Module;
+export type ModuleGeneratorFn = (modules: Modules) => Module|Promise<Module>;
 export type ModuleLoadFn = () => Promise<ModuleGeneratorFn>;
 
 export interface ModuleGenerator {

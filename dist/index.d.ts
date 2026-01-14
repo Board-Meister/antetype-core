@@ -65,7 +65,7 @@ export declare type ModulesEvent = CustomEvent<IModulesEvent>;
 export interface ModuleRegistrationWithName extends ModuleRegistration {
 	name: string;
 }
-export type ModuleGeneratorFn = (modules: Modules) => Module$1;
+export type ModuleGeneratorFn = (modules: Modules) => Module$1 | Promise<Module$1>;
 export type ModuleLoadFn = () => Promise<ModuleGeneratorFn>;
 export interface ModuleGenerator {
 	init: ModuleGeneratorFn;
