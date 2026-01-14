@@ -17,10 +17,11 @@ import {
   ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings,
   InitEvent,
   type ICanvasChangeEvent,
-  type Canvas
+  type Canvas,
+  type CanvasChangeEvent
 } from "@src/type.d";
 import Clone from "@src/component/clone";
-import type { IEventSettings } from "@boardmeister/herald";
+import type { IEventRegistration, IEventSettings } from "@boardmeister/herald";
 
 export interface IInternalCore {
   init: (base: Layout, settings: ISettings) => Promise<IDocumentDef>;
@@ -529,7 +530,53 @@ export default function Core (
     registerEvents();
   }
 
+  const setAnchorInEvent = (event: IEventRegistration): IEventRegistration => {
+    const anchor = module.meta.getCanvas();
+    if (typeof event.subscription == 'function' || typeof event.subscription == 'string') {
+      event.anchor = anchor;
+    } else if (Array.isArray(event.subscription)) {
+      event.subscription.forEach(subscription => {
+        subscription.anchor = anchor;
+      })
+    } else {
+      event.subscription.anchor = anchor;
+    }
+
+    return event;
+  }
+
+  const batch = (
+    events: IEventRegistration[],
+    anchor: Canvas|null = null,
+  ): VoidFunction => {
+    anchor ??= module.meta.getCanvas();
+
+    const unregister = herald.batch([
+      {
+        event: Event.CLOSE,
+        subscription: () => {
+          unregister();
+        },
+        anchor,
+      },
+      {
+        event: Event.CANVAS_CHANGE,
+        subscription: ({ detail: { current } }: CanvasChangeEvent) => {
+          unregister();
+          batch(events, current);
+        },
+        anchor,
+      },
+      ...(events.reduce<IEventRegistration[]>((acc, event) => [...acc, setAnchorInEvent(event)], [])),
+    ]);
+
+    return unregister;
+  }
+
   const getModule = (): ICore => ({
+    event: {
+      batch
+    },
     meta: {
       document: __DOCUMENT,
       generateId,
@@ -685,7 +732,41 @@ export default function Core (
   }
 
   const module = getModule(); /** INSTANTIATE PUBLIC METHODS */
-  registerEvents();
+  batch([
+    {
+      event: Event.INIT,
+      subscription: (event: CustomEvent<InitEvent>): Promise<IDocumentDef> => {
+        const { base, settings } = event.detail;
+
+        return init(base, settings);
+      },
+      anchor: canvas,
+    },
+    {
+      event: Event.SETTINGS,
+      subscription: (e: SettingsEvent): void => {
+        setSettingsDefinition(e);
+      },
+      anchor: canvas,
+    },
+    {
+      event: Event.CALC,
+      subscription: [
+        {
+          priority: -255,
+          method: async (event: CustomEvent<CalcEvent>): Promise<void> => {
+            if (event.detail.element === null) {
+              return;
+            }
+
+            event.detail.element = await module.clone.definitions(event.detail.element);
+          }
+        }
+      ],
+      anchor: canvas,
+    },
+  ])
+  // registerEvents();
 
   return module;
 }

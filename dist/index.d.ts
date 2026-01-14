@@ -238,6 +238,9 @@ export interface IFont {
 	name: string;
 }
 export interface ICore extends Module$1 {
+	event: {
+		batch: (events: IEventRegistration[], anchor: Canvas | null) => VoidFunction;
+	};
 	meta: {
 		document: IDocumentDef;
 		generateId: () => string;
