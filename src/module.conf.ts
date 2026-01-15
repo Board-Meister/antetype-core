@@ -48,7 +48,6 @@ export class AntetypeCore {
         if (this.#loading) {
           await this.#loading;
         }
-        console.log("load module3", this.#moduleCore);
 
         return modules => this.#moduleCore!({ modules: modules, herald: this.#injected!.herald })
       },

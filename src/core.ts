@@ -530,8 +530,7 @@ export default function Core (
     registerEvents();
   }
 
-  const setAnchorInEvent = (event: IEventRegistration): IEventRegistration => {
-    const anchor = module.meta.getCanvas();
+  const setAnchorInEvent = (event: IEventRegistration, anchor: Canvas|null): IEventRegistration => {
     if (typeof event.subscription == 'function' || typeof event.subscription == 'string') {
       event.anchor = anchor;
     } else if (Array.isArray(event.subscription)) {
@@ -550,7 +549,6 @@ export default function Core (
     anchor: Canvas|null = null,
   ): VoidFunction => {
     anchor ??= module.meta.getCanvas();
-
     const unregister = herald.batch([
       {
         event: Event.CLOSE,
@@ -567,7 +565,7 @@ export default function Core (
         },
         anchor,
       },
-      ...(events.reduce<IEventRegistration[]>((acc, event) => [...acc, setAnchorInEvent(event)], [])),
+      ...(events.reduce<IEventRegistration[]>((acc, event) => [...acc, setAnchorInEvent(event, anchor)], [])),
     ]);
 
     return unregister;
