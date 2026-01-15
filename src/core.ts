@@ -575,7 +575,9 @@ export default function Core (
 
   const getModule = (): ICore => ({
     event: {
-      batch
+      batch,
+      dispatch,
+      dispatchSync,
     },
     meta: {
       document: __DOCUMENT,

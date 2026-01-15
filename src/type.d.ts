@@ -1,6 +1,6 @@
 import { ModulesEvent } from './type.d';
 import type { UnknownRecord } from "@src/component/clone";
-import type { Herald } from "@boardmeister/herald"
+import type { Herald, IEventRegistration, IEventSettings } from "@boardmeister/herald"
 import type Marshal from "@boardmeister/marshal";
 
 export interface IModulesEvent {
@@ -227,8 +227,10 @@ export interface ICore extends Module {
   event: {
     batch: (
       events: IEventRegistration[],
-      anchor: Canvas|null,
-    ) => VoidFunction
+      anchor?: Canvas|null,
+    ) => VoidFunction;
+		dispatch(event: CustomEvent, settings?: IEventSettings): Promise<void>;
+	  dispatchSync(event: CustomEvent, settings?: IEventSettings): void;
   },
   meta: {
     document: IDocumentDef;

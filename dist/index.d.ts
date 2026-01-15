@@ -239,7 +239,9 @@ export interface IFont {
 }
 export interface ICore extends Module$1 {
 	event: {
-		batch: (events: IEventRegistration[], anchor: Canvas | null) => VoidFunction;
+		batch: (events: IEventRegistration[], anchor?: Canvas | null) => VoidFunction;
+		dispatch(event: CustomEvent, settings?: IEventSettings): Promise<void>;
+		dispatchSync(event: CustomEvent, settings?: IEventSettings): void;
 	};
 	meta: {
 		document: IDocumentDef;
