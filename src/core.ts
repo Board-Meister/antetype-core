@@ -547,28 +547,29 @@ export default function Core (
   const batch = (
     events: IEventRegistration[],
     anchor: Canvas|null = null,
+    unregisterBind : { unregister: VoidFunction|null} = { unregister: null },
   ): VoidFunction => {
     anchor ??= module.meta.getCanvas();
-    const unregister = herald.batch([
+    unregisterBind.unregister = herald.batch([
       {
         event: Event.CLOSE,
         subscription: () => {
-          unregister();
+          unregisterBind.unregister!();
         },
         anchor,
       },
       {
         event: Event.CANVAS_CHANGE,
         subscription: ({ detail: { current } }: CanvasChangeEvent) => {
-          unregister();
-          batch(events, current);
+          unregisterBind.unregister!();
+          batch(events, current, unregisterBind);
         },
         anchor,
       },
       ...(events.reduce<IEventRegistration[]>((acc, event) => [...acc, setAnchorInEvent(event, anchor)], [])),
     ]);
 
-    return unregister;
+    return () => { unregisterBind.unregister!() };
   }
 
   const getModule = (): ICore => ({
