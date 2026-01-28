@@ -14,11 +14,16 @@ import {
   Layout,
   IDocumentDef,
   RecalculateFinishedEvent,
-  ISettingsDefinition, SettingsEvent, ISettingsDefinitionFieldList, SettingsDefinitionField, ISettings,
+  ISettingsDefinition,
+  SettingsEvent,
+  ISettingsDefinitionFieldList,
+  SettingsDefinitionField,
+  ISettings,
   InitEvent,
   type ICanvasChangeEvent,
   type Canvas,
-  type CanvasChangeEvent
+  type CanvasChangeEvent,
+  type IBox
 } from "@src/type.d";
 import Clone from "@src/component/clone";
 import type { IEventRegistration, IEventSettings } from "@boardmeister/herald";
@@ -39,6 +44,7 @@ export default function Core (
   const sessionQueue: symbol[] = [];
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
   let canvas: Canvas|null = null; // Private canvas
+  const boundingBoxMap = new WeakMap<IBaseDef, IBox>();
   let unregisterEventsHandle: VoidFunction|null = null;
 
   const getCanvas = (): Canvas|null => canvas;
@@ -58,7 +64,6 @@ export default function Core (
   };
 
   console.log(__DOCUMENT)
-
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const debounce = (func: (...args: any[]) => unknown, timeout = 100): () => void => {
@@ -334,10 +339,12 @@ export default function Core (
     const position = def.hierarchy.position;
     const parent = getOriginal<IParentDef>(def.hierarchy.parent);
     const layout = (parent?.type === 'document' ? (parent as IDocumentDef).base : parent?.layout) ?? [];
-    if (layout[position] !== getOriginal(def)) {
+    const original =  getOriginal(def);
+    if (layout[position] !== original) {
       return;
     }
     layout.splice(position, 1);
+    boundingBoxMap.delete(original);
 
     recalculatePositionInLayout(layout);
   }
@@ -358,15 +365,23 @@ export default function Core (
     recalculatePositionInLayout(layout);
   }
 
+  const loadedFonts = new WeakMap<IFont, FontFaceSet|null>();
   const loadFont = async (font: IFont): Promise<FontFaceSet|null> => {
+    if (loadedFonts.has(font)) {
+      console.warn("Already loaded or loading " + font.name + " ");
+      return loadedFonts.get(font)!;
+    }
     try {
+      loadedFonts.set(font, null);
       const myFont = new FontFace(font.name, 'url(' + font.url + ')');
 
       const fontFace = document.fonts.add(await myFont.load());
+      loadedFonts.set(font, fontFace);
       module.view.redrawDebounce();
 
       return fontFace;
     } catch (error) {
+      loadedFonts.set(font, null);
       console.error('Font couldn\'t be loaded:', font.name + ',', font.url, error)
       return null;
     }
@@ -572,6 +587,38 @@ export default function Core (
     return () => { unregisterBind.unregister!() };
   }
 
+  const getTransformedBounds = (
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    localX: number,
+    localY: number,
+    width: number,
+    height: number
+  ): IBox => {
+    const matrix = ctx.getTransform();
+
+    const corners = [
+      new DOMPoint(localX, localY),                 // Top-Left
+      new DOMPoint(localX + width, localY),         // Top-Right
+      new DOMPoint(localX, localY + height),        // Bottom-Left
+      new DOMPoint(localX + width, localY + height) // Bottom-Right
+    ];
+
+    const transformedCorners = corners.map(p => matrix.transformPoint(p));
+    const xs = transformedCorners.map(p => p.x);
+    const ys = transformedCorners.map(p => p.y);
+
+    return {
+      width, height,
+      left: Math.min(...xs),
+      right: Math.max(...xs),
+      top: Math.min(...ys),
+      bottom: Math.max(...ys),
+      // The "center" point of the transformed object
+      x: (Math.min(...xs) + Math.max(...xs)) / 2,
+      y: (Math.min(...ys) + Math.max(...ys)) / 2
+    };
+  }
+
   const getModule = (): ICore => ({
     event: {
       batch,
@@ -607,6 +654,7 @@ export default function Core (
       recalculateDebounce: debounceAsync(recalculate) as typeof recalculate,
       move,
       resize,
+      getBoundingBox: (layer: IBaseDef) => boundingBoxMap.get(layer) ?? null,
     },
     policies: {
       isLayer,
@@ -766,8 +814,28 @@ export default function Core (
       ],
       anchor: canvas,
     },
-  ])
-  // registerEvents();
+    {
+      event: Event.DRAW,
+      subscription: ({ detail: { element } }: CustomEvent<DrawEvent>) => {
+
+        if (!canvas || !element.area) {
+          return;
+        }
+
+        // TODO if this proves to be impacting efficiency, consider flag approach:
+        // - calculate sets a flag that during draw we need to update bounding box
+        // - check the flag status during draw, if recalculation is required
+        const ctx = canvas.getContext("2d") as CanvasRenderingContext2D|OffscreenCanvasRenderingContext2D;
+        boundingBoxMap.set(getOriginal(element), getTransformedBounds(
+          ctx,
+          element.area.start.x,
+          element.area.start.y,
+          element.area.size.w,
+          element.area.size.h,
+        ));
+      }
+    },
+  ]);
 
   return module;
 }

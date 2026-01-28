@@ -223,6 +223,17 @@ export interface IFont {
   name: string;
 }
 
+export interface IBox {
+  height: number;
+  width: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  x: number;
+  y: number;
+}
+
 export interface ICore extends Module {
   event: {
     batch: (
@@ -266,6 +277,10 @@ export interface ICore extends Module {
     recalculateDebounce: (parent?: IParentDef, layout?: Layout, currentSession?: symbol|null) => Promise<Layout>;
     move: (original: IBaseDef, newStart: IStart) => Promise<void>;
     resize: (original: IBaseDef, newSize: ISize) => Promise<void>;
+    /**
+     * Absolute box is a calculated position of provided layer from canvas ends.
+     */
+    getBoundingBox: (layer: IBaseDef) => IBox|null;
   };
   policies: {
     isLayer: (layer: Record<symbol, unknown>) => boolean;
