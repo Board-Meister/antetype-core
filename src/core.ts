@@ -45,7 +45,6 @@ export default function Core (
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
   let canvas: Canvas|null = null; // Private canvas
   const boundingBoxMap = new WeakMap<IBaseDef, IBox>();
-  let unregisterEventsHandle: VoidFunction|null = null;
 
   const getCanvas = (): Canvas|null => canvas;
   const { cloneDefinition, isClone, getOriginal, getClone } = Clone(getCanvas);
@@ -542,7 +541,6 @@ export default function Core (
     });
     await dispatch(event);
     canvas = event.detail.current;
-    registerEvents();
   }
 
   const setAnchorInEvent = (event: IEventRegistration, anchor: Canvas|null): IEventRegistration => {
@@ -733,53 +731,6 @@ export default function Core (
     return doc;
   }
 
-  const registerEvents = (): void => {
-    if (unregisterEventsHandle) {
-      unregisterEventsHandle();
-    }
-    unregisterEventsHandle = herald.batch([
-      {
-        event: Event.CLOSE,
-        subscription: () => {
-          unregisterEventsHandle!();
-        },
-        anchor: canvas,
-      },
-      {
-        event: Event.INIT,
-        subscription: (event: CustomEvent<InitEvent>): Promise<IDocumentDef> => {
-          const { base, settings } = event.detail;
-
-          return init(base, settings);
-        },
-        anchor: canvas,
-      },
-      {
-        event: Event.SETTINGS,
-        subscription: (e: SettingsEvent): void => {
-          setSettingsDefinition(e);
-        },
-        anchor: canvas,
-      },
-      {
-        event: Event.CALC,
-        subscription: [
-          {
-            priority: -255,
-            method: async (event: CustomEvent<CalcEvent>): Promise<void> => {
-              if (event.detail.element === null) {
-                return;
-              }
-
-              event.detail.element = await module.clone.definitions(event.detail.element);
-            }
-          }
-        ],
-        anchor: canvas,
-      },
-    ]);
-  }
-
   const module = getModule(); /** INSTANTIATE PUBLIC METHODS */
   batch([
     {
@@ -789,14 +740,12 @@ export default function Core (
 
         return init(base, settings);
       },
-      anchor: canvas,
     },
     {
       event: Event.SETTINGS,
       subscription: (e: SettingsEvent): void => {
         setSettingsDefinition(e);
       },
-      anchor: canvas,
     },
     {
       event: Event.CALC,
@@ -812,7 +761,6 @@ export default function Core (
           }
         }
       ],
-      anchor: canvas,
     },
     {
       event: Event.DRAW,
