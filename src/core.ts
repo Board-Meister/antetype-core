@@ -23,7 +23,9 @@ import {
   type ICanvasChangeEvent,
   type Canvas,
   type CanvasChangeEvent,
-  type IBox
+  type IBox,
+  type IExportDef,
+  type ISerializeEvent
 } from "@src/type.d";
 import Clone from "@src/component/clone";
 import type { IEventRegistration, IEventSettings } from "@boardmeister/herald";
@@ -617,6 +619,20 @@ export default function Core (
     };
   }
 
+  const serialize = (subject: Layout|IBaseDef): string => {
+    const event = new CustomEvent<ISerializeEvent>(Event.SERIALIZE, {
+      detail: {
+        subject,
+        replacer: (key, value) => {
+          if (key === 'hierarchy') return undefined;
+          return value as unknown;
+        }
+      }
+    });
+
+    return JSON.stringify(event.detail.subject, event.detail.replacer);
+  }
+
   const getModule = (): ICore => ({
     event: {
       batch,
@@ -629,6 +645,10 @@ export default function Core (
       layerDefinitions,
       getCanvas,
       setCanvas,
+      export: (): IExportDef => {
+        return JSON.parse(serialize(__DOCUMENT)) as IExportDef;
+      },
+      serialize,
     },
     clone: {
       definitions: cloneDefinition,

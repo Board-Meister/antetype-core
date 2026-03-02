@@ -92,7 +92,13 @@ declare const Event$1 = {
 	TYPE_DEFINITION: "antetype.layer.type.definition",
 	FONTS_LOADED: "antetype.font.loaded",
 	CANVAS_CHANGE: "antetype.canvas.change",
+	SERIALIZE: "antetype.meta.serialize",
 } as const;
+export interface ISerializeEvent {
+	subject: Layout | IBaseDef;
+	replacer: (key: string, value: any) => any;
+}
+export type SerializeEvent = CustomEvent<ISerializeEvent>;
 export type FontsLoadedEvent = CustomEvent;
 export type EventKeys = typeof Event$1[keyof typeof Event$1];
 export declare type RecalculateFinishedEvent = object;
@@ -225,6 +231,17 @@ export interface IDocumentDef extends IParentDef {
 	};
 	settings: ISettings;
 }
+export type ExportLayout = (IExportBaseDef | IExportParentDef)[];
+export interface IExportBaseDef<T = never> extends IBaseDef<T> {
+	hierarchy: undefined;
+}
+export interface IExportParentDef<T = never> extends IParentDef<T> {
+	hierarchy: undefined;
+	layout: ExportLayout;
+}
+export interface IExportDef extends IDocumentDef {
+	base: ExportLayout;
+}
 export interface IInjected extends Record<string, object> {
 	herald: Herald;
 	marshal: Marshal;
@@ -259,6 +276,8 @@ export interface ICore extends Module$1 {
 		layerDefinitions: () => ITypeDefinitionMap;
 		getCanvas: () => Canvas | null;
 		setCanvas: (newCanvas: null | Canvas) => Promise<void>;
+		export: () => IExportDef;
+		serialize: (definition: Layout | IBaseDef) => string;
 	};
 	clone: {
 		definitions: (data: IBaseDef) => Promise<IBaseDef>;
