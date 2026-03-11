@@ -788,12 +788,12 @@ export default function Core (
     {
       event: Event.INIT,
       subscription: (event: InitEvent): Promise<IDocumentDef> => {
-        const { document } = event.detail;
-        if (!document?.base || !document.settings) {
-          throw new Error("Cannot start Antetype without proper base and settings!");
+        const { document = { base: [], settings: {} } } = event.detail;
+        if (!document.base || document.base.length == 0) {
+          console.warn("Retrieved document is empty!");
         }
 
-        return init(document.base as Layout, document.settings);
+        return init((document.base ?? []) as Layout, document.settings ?? {});
       },
     },
     {
