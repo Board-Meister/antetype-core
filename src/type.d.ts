@@ -38,6 +38,7 @@ export interface Modules {
 export const Event = {
   INIT: 'antetype.init',
   CLOSE: 'antetype.close',
+  SAVE: 'antetype.save',
   DRAW: 'antetype.draw',
   CALC: 'antetype.calc',
   RECALC_FINISHED: 'antetype.recalc.finished',
@@ -158,10 +159,22 @@ export interface ISettingEvent {
 
 export type SettingsEvent = CustomEvent<ISettingEvent>;
 
-export interface InitEvent {
-  base: Layout;
-  settings: ISettings;
+export type InitEvent = CustomEvent<IInit>;
+
+export interface IDestination {
+  type: string;
 }
+
+export type IDestinations = IDestination;
+
+export interface ISaveEvent {
+  document: IExportDef;
+  saved: boolean;
+  destination?: IDestinations;
+  additions: Record<string, any>;
+}
+
+export declare type SaveEvent = CustomEvent<ISaveEvent>;
 
 export declare type CloseEvent = object;
 
@@ -227,8 +240,9 @@ export interface IExportParentDef<T = never > extends IParentDef<T> {
   layout: ExportLayout;
 }
 
-export interface IExportDef extends IDocumentDef {
+export interface IExportDef {
   base: ExportLayout;
+  settings: ISettings;
 };
 
 export interface IInjected extends Record<string, object> {
@@ -257,7 +271,29 @@ export interface IBox {
   y: number;
 }
 
+export interface IDestinationInit extends Record<string, any> {
+  destination: IDestinations;
+  document?: IExportDef;
+}
+
+export interface IDocumentInit extends Record<string, any> {
+  destination?: never;
+  document: IExportDef;
+}
+
+export type IInit = IDestinationInit | IDocumentInit;
+
+export interface ISave extends Record<string, any> {
+  document?: IExportDef,
+  destination?: IDestinations;
+}
+
 export interface ICore extends Module {
+  flow: {
+    save: (save?: ISave) =>  Promise<ISaveEvent>;
+    init: (init: IInit) => Promise<void>;
+    close: () => Promise<void>;
+  },
   event: {
     batch: (
       events: IEventRegistration[],

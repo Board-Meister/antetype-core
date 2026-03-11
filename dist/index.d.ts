@@ -84,6 +84,7 @@ export interface Modules {
 declare const Event$1 = {
 	INIT: "antetype.init",
 	CLOSE: "antetype.close",
+	SAVE: "antetype.save",
 	DRAW: "antetype.draw",
 	CALC: "antetype.calc",
 	RECALC_FINISHED: "antetype.recalc.finished",
@@ -177,10 +178,18 @@ export interface ISettingEvent {
 	additional: Record<string, any>;
 }
 export type SettingsEvent = CustomEvent<ISettingEvent>;
-export interface InitEvent {
-	base: Layout;
-	settings: ISettings;
+export type InitEvent = CustomEvent<IInit>;
+export interface IDestination {
+	type: string;
 }
+export type IDestinations = IDestination;
+export interface ISaveEvent {
+	document: IExportDef;
+	saved: boolean;
+	destination?: IDestinations;
+	additions: Record<string, any>;
+}
+export declare type SaveEvent = CustomEvent<ISaveEvent>;
 declare type CloseEvent$1 = object;
 export declare type XValue = number;
 export declare type YValue = XValue;
@@ -239,8 +248,9 @@ export interface IExportParentDef<T = never> extends IParentDef<T> {
 	hierarchy: undefined;
 	layout: ExportLayout;
 }
-export interface IExportDef extends IDocumentDef {
+export interface IExportDef {
 	base: ExportLayout;
+	settings: ISettings;
 }
 export interface IInjected extends Record<string, object> {
 	herald: Herald;
@@ -264,7 +274,25 @@ export interface IBox {
 	x: number;
 	y: number;
 }
+export interface IDestinationInit extends Record<string, any> {
+	destination: IDestinations;
+	document?: IExportDef;
+}
+export interface IDocumentInit extends Record<string, any> {
+	destination?: never;
+	document: IExportDef;
+}
+export type IInit = IDestinationInit | IDocumentInit;
+export interface ISave extends Record<string, any> {
+	document?: IExportDef;
+	destination?: IDestinations;
+}
 export interface ICore extends Module$1 {
+	flow: {
+		save: (save?: ISave) => Promise<ISaveEvent>;
+		init: (init: IInit) => Promise<void>;
+		close: () => Promise<void>;
+	};
 	event: {
 		batch: (events: IEventRegistration[], anchor?: Canvas | null) => VoidFunction;
 		dispatch(event: CustomEvent, settings?: IEventSettings): Promise<void>;

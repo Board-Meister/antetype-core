@@ -25,7 +25,11 @@ import {
   type CanvasChangeEvent,
   type IBox,
   type IExportDef,
-  type ISerializeEvent
+  type ISerializeEvent,
+  type ISaveEvent,
+  type ISave,
+  type ExportLayout,
+  type IInit
 } from "@src/type.d";
 import Clone from "@src/component/clone";
 import type { IEventRegistration, IEventSettings } from "@boardmeister/herald";
@@ -633,7 +637,37 @@ export default function Core (
     return JSON.stringify(event.detail.subject, event.detail.replacer);
   }
 
+  const exportDocument = (): IExportDef => {
+    return {
+      base: JSON.parse(serialize(__DOCUMENT.base)) as ExportLayout,
+      settings: JSON.parse(JSON.stringify(__DOCUMENT.settings)) as ISettings,
+    };
+  };
+
   const getModule = (): ICore => ({
+    flow: {
+      close: () => {
+        return dispatch(new CustomEvent(Event.CLOSE));
+      },
+      init: init => {
+        return dispatch(new CustomEvent<IInit>(Event.INIT, {
+          detail: init
+        }));
+      },
+      save: async ({ document = exportDocument(), destination, ...rest }: ISave = {}): Promise<ISaveEvent> => {
+        const event = new CustomEvent<ISaveEvent>(Event.SAVE, {
+          detail: {
+            document,
+            saved: false,
+            destination,
+            additions: rest,
+          },
+        });
+        await dispatch(event);
+
+        return event.detail;
+      }
+    },
     event: {
       batch,
       dispatch,
@@ -645,9 +679,7 @@ export default function Core (
       layerDefinitions,
       getCanvas,
       setCanvas,
-      export: (): IExportDef => {
-        return JSON.parse(serialize(__DOCUMENT)) as IExportDef;
-      },
+      export: exportDocument,
       serialize,
     },
     clone: {
@@ -755,10 +787,13 @@ export default function Core (
   batch([
     {
       event: Event.INIT,
-      subscription: (event: CustomEvent<InitEvent>): Promise<IDocumentDef> => {
-        const { base, settings } = event.detail;
+      subscription: (event: InitEvent): Promise<IDocumentDef> => {
+        const { document } = event.detail;
+        if (!document?.base || !document.settings) {
+          throw new Error("Cannot start Antetype without proper base and settings!");
+        }
 
-        return init(base, settings);
+        return init(document.base as Layout, document.settings);
       },
     },
     {
