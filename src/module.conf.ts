@@ -1,12 +1,10 @@
 import type { IInjectable } from "@boardmeister/marshal"
 import type { ISubscriber, Subscriptions } from "@boardmeister/herald"
-import type Core from "@src/core";
 import type {
+  Canvas,
   IInjected,
   Modules,
-  ModulesEvent,
 } from "@src/type.d";
-import { Event } from "@src/type.d";
 import type HelperModule from "@src/helper";
 
 export const ID = 'core';
@@ -14,8 +12,6 @@ export const VERSION = '0.0.5';
 
 export class AntetypeCore {
   #injected?: IInjected;
-  #moduleCore: (typeof Core)|null = null;
-  #loading: Promise<void>|false = false;
   #helperModule: (typeof HelperModule)|null = null;
 
   static inject: Record<string, string> = {
@@ -26,37 +22,8 @@ export class AntetypeCore {
     this.#injected = injections;
   }
 
-  async loadModules(required: string[]): Promise<Modules> {
-    return (await this.#getHelper()).loadModules(required);
-  }
-
-  register(event: ModulesEvent): void {
-    const { registration } = event.detail;
-
-    registration[ID] = {
-      load: async () => {
-        if (!this.#moduleCore && !this.#loading) {
-          this.#loading = new Promise(resolve => {
-            void this.#import<typeof Core>('core.js').then(module => {
-              this.#moduleCore = module.default;
-              this.#loading = false;
-              resolve();
-            })
-          });
-        }
-
-        if (this.#loading) {
-          await this.#loading;
-        }
-
-        return modules => this.#moduleCore!({ modules: modules, herald: this.#injected!.herald })
-      },
-      version: VERSION,
-    };
-  }
-
-  static subscriptions: Subscriptions = {
-    [Event.MODULES]: 'register',
+  async loadModules(required: string[], canvas?: Canvas): Promise<Modules> {
+    return (await this.#getHelper()).loadModules(required, canvas);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
@@ -66,8 +33,10 @@ export class AntetypeCore {
 
   async #getHelper(): Promise<HelperModule> {
     this.#helperModule ??= (await this.#import<typeof HelperModule>('helper.js')).default;
-    return new this.#helperModule(this.#injected!.herald);
+    return new this.#helperModule(this.#injected!.herald, this.#import.bind(this));
   }
+
+  static subscriptions: Subscriptions = {};
 }
 
 const EnAntetypeCore: IInjectable<IInjected> & ISubscriber = AntetypeCore;

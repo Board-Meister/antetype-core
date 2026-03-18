@@ -6,6 +6,7 @@ import type Marshal from "@boardmeister/marshal";
 
 export interface IModulesEvent {
   registration: Record<string, ModuleRegistration>;
+  canvas?: Canvas;
 }
 
 export declare type ModulesEvent = CustomEvent<IModulesEvent>;
@@ -251,8 +252,9 @@ export interface IInjected extends Record<string, object> {
 }
 
 export interface IParameters {
-  herald: Herald,
-  modules?: Modules,
+  herald: Herald;
+  modules?: Modules;
+  canvas?: Canvas;
 }
 
 export interface IFont {

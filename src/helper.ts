@@ -1,23 +1,57 @@
 import type { Herald } from '@boardmeister/herald';
+import { ID, VERSION, type Core } from '@src/index';
 import {
   Event,
+  type Canvas,
   type IModulesEvent,
   type ModuleGenerator,
   type ModuleRegistration,
   type ModuleRegistrationWithName,
   type Modules,
+  type ModulesEvent,
 } from "@src/type.d";
 
 export default class HelperModule {
   herald: Herald;
+  importModule: <T>(suffix: string) => Promise<{default: T}>;
+  moduleCore: (typeof Core)|null = null;
+  loading: Promise<void>|false = false;
 
-  constructor(herald: Herald) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+  constructor(herald: Herald, importModule: <T>(suffix: string) => Promise<{default: T}>) {
     this.herald = herald;
+    this.importModule = importModule;
   }
 
-  async loadModules(required: string[]): Promise<Modules> {
+  register(event: ModulesEvent): void {
+    const { registration, canvas } = event.detail;
+
+    registration[ID] = {
+      load: async () => {
+        if (!this.moduleCore && !this.loading) {
+          this.loading = new Promise(resolve => {
+            void this.importModule<typeof Core>('core.js').then(module => {
+              this.moduleCore = module.default;
+              this.loading = false;
+              resolve();
+            })
+          });
+        }
+
+        if (this.loading) {
+          await this.loading;
+        }
+
+        return modules => this.moduleCore!({ modules: modules, herald: this.herald, canvas })
+      },
+      version: VERSION,
+    };
+  }
+
+  async loadModules(required: string[], canvas?: Canvas): Promise<Modules> {
     const requiredModules: Record<string, ModuleRegistration> = {}
-    const event = new CustomEvent<IModulesEvent>(Event.MODULES, {  detail: { registration: {} } });
+    const event = new CustomEvent<IModulesEvent>(Event.MODULES, {  detail: { registration: {}, canvas } });
+    this.register(event);
     await this.herald.dispatch(event);
     const registration = event.detail.registration;
     for (const id of required) {

@@ -46,10 +46,9 @@ export default function Core (
   const {
     herald,
   } = parameters;
-
+  let canvas = parameters.canvas ?? null;
   const sessionQueue: symbol[] = [];
   const calcQueue: (() => Promise<IBaseDef|null>)[] = [];
-  let canvas: Canvas|null = null; // Private canvas
   const boundingBoxMap = new WeakMap<IBaseDef, IBox>();
 
   const getCanvas = (): Canvas|null => canvas;

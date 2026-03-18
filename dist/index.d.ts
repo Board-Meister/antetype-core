@@ -60,6 +60,7 @@ declare class Herald {
 }
 export interface IModulesEvent {
 	registration: Record<string, ModuleRegistration>;
+	canvas?: Canvas;
 }
 export declare type ModulesEvent = CustomEvent<IModulesEvent>;
 export interface ModuleRegistrationWithName extends ModuleRegistration {
@@ -259,6 +260,7 @@ export interface IInjected extends Record<string, object> {
 export interface IParameters {
 	herald: Herald;
 	modules?: Modules;
+	canvas?: Canvas;
 }
 export interface IFont {
 	url: string;
@@ -362,8 +364,7 @@ export declare class AntetypeCore {
 	#private;
 	static inject: Record<string, string>;
 	inject(injections: IInjected): void;
-	loadModules(required: string[]): Promise<Modules>;
-	register(event: ModulesEvent): void;
+	loadModules(required: string[], canvas?: Canvas): Promise<Modules>;
 	static subscriptions: Subscriptions;
 }
 
