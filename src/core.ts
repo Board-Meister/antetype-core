@@ -381,7 +381,6 @@ export default function Core (
 
       const fontFace = document.fonts.add(await myFont.load());
       loadedFonts.set(font, fontFace);
-      module.view.redrawDebounce();
 
       return fontFace;
     } catch (error) {
@@ -398,7 +397,11 @@ export default function Core (
       promises.push(loadFont(font));
     }
 
-    return Promise.all(promises);
+    const fonts = await Promise.all(promises);
+
+    void module.view.recalculateDebounce().then(module.view.redrawDebounce);
+
+    return fonts;
   }
 
   const retrieveSettingsDefinition = async function (
